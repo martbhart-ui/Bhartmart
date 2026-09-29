@@ -1,45 +1,34 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 
-export interface Product {
-  id: string;
-  name: string;
-  category_id: string;
-  price: number;
-  original_price?: number;
-  stock: number;
-  rating?: number;
-  reviews_count?: number;
-  image_url: string;
-  description?: string;
-  is_featured?: boolean;
-}
-
-export interface CartItem {
-  product: Product;
-  quantity: number;
-}
-
 interface StoreContextType {
-  products: Product[];
-  setProducts: React.Dispatch<React.SetStateAction<Product[]>>;
-  cart: CartItem[];
-  addToCart: (product: Product) => void;
-  removeFromCart: (productId: string) => void;
-  updateQuantity: (productId: string, delta: number) => void;
+  products: any[];
+  cart: any[];
   cartCount: number;
-  cartTotal: number;
-  loading: boolean;
-  refreshProducts: () => Promise<void>;
+  addToCart: (product: any) => void;
+  removeFromCart: (productId: string) => void;
+  updateQuantity: (productId: string, quantity: number) => void;
+  clearCart: () => void;
+  fetchProducts: () => Promise<void>;
 }
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
 export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [cart, setCart] = useState<CartItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [products, setProducts] = useState<any[]>([]);
+  const [cart, setCart] = useState<any[]>(() => {
+    try {
+      const saved = localStorage.getItem('bharatmart_cart');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
 
+  // Calculate total items count for Header badge
+  const cartCount = cart.reduce((total, item) => total + (item.quantity || 1), 0);
+
+  // Fetch all products from Supabase
   const fetchProducts = async () => {
     try {
       const { data, error } = await supabase
@@ -47,65 +36,80 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      if (data) setProducts(data);
-    } catch (error) {
-      console.error('Error fetching products:', error);
-    } finally {
-      setLoading(false);
+      if (!error && data) {
+        setProducts(data);
+      }
+    } catch (err) {
+      console.error('Error fetching products:', err);
     }
   };
 
   useEffect(() => {
     fetchProducts();
+
+    // REAL-TIME SYNC: Jaise hi admin add/delete karega, bina reload turant update hoga
+    const productSubscription = supabase
+      .channel('storefront_products_realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'products' },
+        () => {
+          fetchProducts();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(productSubscription);
+    };
   }, []);
 
-  const addToCart = (product: Product) => {
+  // Save cart to local storage
+  useEffect(() => {
+    localStorage.setItem('bharatmart_cart', JSON.stringify(cart));
+  }, [cart]);
+
+  const addToCart = (product: any) => {
     setCart((prev) => {
-      const existing = prev.find((item) => item.product.id === product.id);
+      const existing = prev.find((item) => item.id === product.id);
       if (existing) {
         return prev.map((item) =>
-          item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
+          item.id === product.id ? { ...item, quantity: (item.quantity || 1) + 1 } : item
         );
       }
-      return [...prev, { product, quantity: 1 }];
+      return [...prev, { ...product, quantity: 1 }];
     });
   };
 
   const removeFromCart = (productId: string) => {
-    setCart((prev) => prev.filter((item) => item.product.id !== productId));
+    setCart((prev) => prev.filter((item) => item.id !== productId));
   };
 
-  const updateQuantity = (productId: string, delta: number) => {
+  const updateQuantity = (productId: string, quantity: number) => {
+    if (quantity <= 0) {
+      removeFromCart(productId);
+      return;
+    }
     setCart((prev) =>
-      prev
-        .map((item) => {
-          if (item.product.id === productId) {
-            const newQty = item.quantity + delta;
-            return newQty > 0 ? { ...item, quantity: newQty } : null;
-          }
-          return item;
-        })
-        .filter(Boolean) as CartItem[]
+      prev.map((item) => (item.id === productId ? { ...item, quantity } : item))
     );
   };
 
-  const cartCount = cart.reduce((total, item) => total + item.quantity, 0);
-  const cartTotal = cart.reduce((total, item) => total + item.product.price * item.quantity, 0);
+  const clearCart = () => {
+    setCart([]);
+  };
 
   return (
     <StoreContext.Provider
       value={{
         products,
-        setProducts,
         cart,
+        cartCount,
         addToCart,
         removeFromCart,
         updateQuantity,
-        cartCount,
-        cartTotal,
-        loading,
-        refreshProducts: fetchProducts
+        clearCart,
+        fetchProducts,
       }}
     >
       {children}
@@ -115,6 +119,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
 export const useStore = () => {
   const context = useContext(StoreContext);
-  if (!context) throw new Error('useStore must be used within StoreProvider');
+  if (!context) {
+    throw new Error('useStore must be used within a StoreProvider');
+  }
   return context;
 };

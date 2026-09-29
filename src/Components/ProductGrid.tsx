@@ -1,198 +1,217 @@
-import React from 'react';
-import { Star, ShoppingCart } from 'lucide-react';
-import { useStore } from '../context/StoreContext';
-import { handleImageError } from '../lib/supabase';
+import React, { useState } from 'react';
+import { Heart, Share2, ShoppingBag, Star, Check, } from 'lucide-react';
 
 interface ProductGridProps {
-  selectedCategory: string | null;
-  searchTerm: string;
+  products: any[];
+  loading?: boolean;
+  onSelectProduct: (product: any) => void;
+  onAddToCart: (product: any) => void;
+  onToggleWishlist: (product: any) => void;
+  wishlist?: any[];
+  selectedCategory?: string | null;
+  searchTerm?: string;
+  onResetFilters?: () => void;
+  onOpenCart?: () => void;
 }
 
-export const ProductGrid: React.FC<ProductGridProps> = ({ selectedCategory, searchTerm }) => {
-  const { products, addToCart } = useStore();
+export const ProductGrid: React.FC<ProductGridProps> = ({
+  products,
+  loading = false,
+  onSelectProduct,
+  onAddToCart,
+  onToggleWishlist,
+  wishlist = [],
+  onResetFilters,
+}) => {
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  const defaultProducts = [
-    {
-      id: 'p-1',
-      name: 'Anime Graphic Oversized T-Shirt',
-      category_id: 'tshirts',
-      price: 349,
-      original_price: 699,
-      stock: 50,
-      rating: 4.8,
-      reviews_count: 128,
-      image_url: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=600'
-    },
-    {
-      id: 'p-2',
-      name: 'Naruto Graphic Hoodie - Black & Beige',
-      category_id: 'hoodies',
-      price: 599,
-      original_price: 999,
-      stock: 35,
-      rating: 4.9,
-      reviews_count: 96,
-      image_url: 'https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=600'
-    },
-    {
-      id: 'p-3',
-      name: 'Premium Zip Neck Sweatshirt',
-      category_id: 'men',
-      price: 549,
-      original_price: 699,
-      stock: 25,
-      rating: 4.7,
-      reviews_count: 78,
-      image_url: 'https://images.unsplash.com/photo-1578587018452-892bacefd3f2?w=600'
-    },
-    {
-      id: 'p-4',
-      name: 'Calvin Klein Printed T-Shirt',
-      category_id: 'tshirts',
-      price: 399,
-      original_price: 799,
-      stock: 45,
-      rating: 4.9,
-      reviews_count: 110,
-      image_url: 'https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=600'
-    },
-    {
-      id: 'p-5',
-      name: 'Sleeveless Gym & Casual Hoodie for Men',
-      category_id: 'hoodies',
-      price: 499,
-      original_price: 899,
-      stock: 30,
-      rating: 4.6,
-      reviews_count: 64,
-      image_url: 'https://images.unsplash.com/photo-1509967419530-da38b4704bc6?w=600'
+  const isVideo = (url: string) => {
+    return url?.match(/\.(mp4|webm|ogg|mov)$/i) || url?.includes('video');
+  };
+
+  const handleShare = (e: React.MouseEvent, product: any) => {
+    e.stopPropagation(); // Card open hone se roke
+    const shareUrl = `${window.location.origin}/?product=${product.id}`;
+
+    if (navigator.share) {
+      navigator
+        .share({
+          title: product.name,
+          text: `Check out ${product.name} on BHART MART!`,
+          url: shareUrl,
+        })
+        .catch(() => {});
+    } else {
+      navigator.clipboard.writeText(shareUrl);
+      setCopiedId(product.id);
+      setTimeout(() => setCopiedId(null), 2000);
     }
-  ];
+  };
 
-  const activeProducts = products && products.length > 0 ? products : defaultProducts;
+  if (loading) {
+    return (
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 py-8">
+        {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+          <div key={i} className="bg-[#141A28] border border-gray-800 rounded-3xl p-4 animate-pulse space-y-3">
+            <div className="aspect-square bg-gray-800 rounded-2xl w-full" />
+            <div className="h-4 bg-gray-800 rounded w-3/4" />
+            <div className="h-4 bg-gray-800 rounded w-1/2" />
+          </div>
+        ))}
+      </div>
+    );
+  }
 
-  const filteredProducts = activeProducts.filter((p: any) => {
-    const matchesCategory = selectedCategory ? p.category_id === selectedCategory : true;
-    const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesCategory && matchesSearch;
-  });
+  if (products.length === 0) {
+    return (
+      <div className="text-center py-16 bg-[#141A28] border border-gray-800 rounded-3xl p-8 max-w-lg mx-auto my-8">
+        <h3 className="text-base font-black text-white">No Products Found</h3>
+        <p className="text-xs text-gray-400 mt-1">Try searching for something else or clear the active filter.</p>
+        {onResetFilters && (
+          <button
+            onClick={onResetFilters}
+            className="mt-4 px-5 py-2 rounded-xl bg-[#C59B27] text-black font-black text-xs cursor-pointer hover:brightness-110 transition"
+          >
+            Show All Products
+          </button>
+        )}
+      </div>
+    );
+  }
 
   return (
-    <section id="products" className="max-w-7xl mx-auto px-4 py-8">
-      {/* Promo Triple Banners (Photo 1 exact) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
-        <div className="bg-[#18181B] text-white p-6 rounded-2xl flex items-center justify-between shadow-sm">
-          <div>
-            <span className="text-[10px] text-gray-400 font-extrabold uppercase tracking-widest">MEGA SALE</span>
-            <h4 className="text-2xl font-black text-amber-400 mt-1">UP TO 50% OFF</h4>
-            <p className="text-xs text-gray-400 mt-0.5">On Bestselling Styles</p>
-            <button className="mt-4 bg-[#C59B27] hover:bg-amber-600 text-white text-[11px] font-bold px-4 py-2 rounded">
-              SHOP NOW
-            </button>
-          </div>
-          <img src="https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=300" alt="sale" className="w-24 h-24 object-cover rounded-xl" />
-        </div>
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+      {products.map((product) => {
+        const isWishlisted = wishlist.some((item) => item.id === product.id);
+        const discount = product.original_price
+          ? Math.round(((Number(product.original_price) - Number(product.price)) / Number(product.original_price)) * 100)
+          : 0;
 
-        <div className="bg-[#D9C4A6] text-gray-900 p-6 rounded-2xl flex items-center justify-between shadow-sm">
-          <div>
-            <span className="text-[10px] text-[#785E39] font-extrabold uppercase tracking-widest">NEW COLLECTION</span>
-            <h4 className="text-2xl font-black mt-1">JUST LANDED</h4>
-            <p className="text-xs text-[#785E39] mt-0.5">Upgrade Your Style</p>
-            <button className="mt-4 bg-gray-950 text-white hover:bg-black text-[11px] font-bold px-4 py-2 rounded">
-              SHOP NOW
-            </button>
-          </div>
-          <img src="https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?w=300" alt="new" className="w-24 h-24 object-cover rounded-xl" />
-        </div>
+        return (
+          <div
+            key={product.id}
+            onClick={() => onSelectProduct(product)}
+            className="group bg-[#141A28] border border-gray-800 hover:border-[#C59B27]/60 rounded-3xl overflow-hidden flex flex-col justify-between transition-all duration-300 hover:shadow-xl hover:shadow-[#C59B27]/10 cursor-pointer relative"
+          >
+            {/* MEDIA THUMBNAIL */}
+            <div className="relative aspect-square overflow-hidden bg-black/40">
+              {isVideo(product.image_url) ? (
+                <video
+                  src={product.image_url}
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                />
+              ) : (
+                <img
+                  src={product.image_url}
+                  alt={product.name}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  loading="lazy"
+                />
+              )}
 
-        <div className="bg-[#EDE9E3] text-gray-900 p-6 rounded-2xl flex items-center justify-between shadow-sm">
-          <div>
-            <span className="text-[10px] text-gray-500 font-extrabold uppercase tracking-widest">LIMITED STOCK</span>
-            <h4 className="text-2xl font-black mt-1">HURRY UP!</h4>
-            <p className="text-xs text-gray-500 mt-0.5">Grab Before It's Gone</p>
-            <button className="mt-4 bg-[#C59B27] hover:bg-amber-600 text-white text-[11px] font-bold px-4 py-2 rounded">
-              SHOP NOW
-            </button>
-          </div>
-          <img src="https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=300" alt="hoodie" className="w-24 h-24 object-cover rounded-xl" />
-        </div>
-      </div>
-
-      {/* Section Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <span className="text-xs text-[#C59B27] uppercase tracking-[0.2em] font-extrabold flex items-center gap-2">
-            <span>——</span> TRENDING NOW <span>——</span>
-          </span>
-        </div>
-        <a href="#products" className="text-xs font-bold text-gray-500 hover:text-[#C59B27] transition">
-          VIEW ALL →
-        </a>
-      </div>
-
-      {/* Product Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-        {filteredProducts.map((prod: any) => {
-          const discount = prod.original_price
-            ? Math.round(((prod.original_price - prod.price) / prod.original_price) * 100)
-            : null;
-
-          return (
-            <div
-              key={prod.id}
-              className="bg-white rounded-xl border border-gray-200 overflow-hidden flex flex-col justify-between hover:shadow-lg transition duration-200 group"
-            >
-              <div className="relative aspect-square w-full overflow-hidden bg-gray-50">
-                {discount && (
-                  <span className="absolute top-2 left-2 z-10 bg-emerald-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded shadow">
+              {/* TOP-LEFT TAGS */}
+              <div className="absolute top-2.5 left-2.5 flex flex-col gap-1">
+                {product.is_trending && (
+                  <span className="bg-amber-500 text-black text-[9px] font-black uppercase px-2 py-0.5 rounded-md shadow">
+                    Trending
+                  </span>
+                )}
+                {discount > 0 && (
+                  <span className="bg-rose-600 text-white text-[9px] font-black uppercase px-2 py-0.5 rounded-md shadow">
                     {discount}% OFF
                   </span>
                 )}
-                <img
-                  src={prod.image_url}
-                  alt={prod.name}
-                  onError={handleImageError}
-                  className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
-                />
               </div>
 
-              <div className="p-3 flex flex-col flex-1 justify-between gap-2.5">
-                <div>
-                  <h3 className="text-xs font-bold text-gray-900 line-clamp-2 leading-snug group-hover:text-[#C59B27] transition">
-                    {prod.name}
-                  </h3>
-                  <div className="flex items-center gap-1 text-amber-500 text-[11px] mt-1">
-                    <Star className="w-3 h-3 fill-current" />
-                    <span className="font-bold text-gray-700">{prod.rating || 4.8}</span>
-                    <span className="text-gray-400 text-[10px]">({prod.reviews_count || 50})</span>
-                  </div>
-                </div>
+              {/* TOP-RIGHT ACTIONS: WISHLIST + SHARE BUTTON */}
+              <div className="absolute top-2.5 right-2.5 flex flex-col gap-2">
+                {/* 1. WISHLIST HEART */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToggleWishlist(product);
+                  }}
+                  className={`w-8 h-8 rounded-full flex items-center justify-center backdrop-blur-md transition shadow-md cursor-pointer ${
+                    isWishlisted
+                      ? 'bg-rose-600 text-white scale-110'
+                      : 'bg-black/60 text-gray-300 hover:text-white hover:bg-black/80'
+                  }`}
+                  title={isWishlisted ? 'Remove from Wishlist' : 'Add to Wishlist'}
+                >
+                  <Heart className={`w-4 h-4 ${isWishlisted ? 'fill-white' : ''}`} />
+                </button>
 
+                {/* 2. DIRECT SHARE BUTTON (Under Heart) */}
+                <button
+                  type="button"
+                  onClick={(e) => handleShare(e, product)}
+                  className="w-8 h-8 rounded-full bg-black/60 hover:bg-[#C59B27] text-gray-300 hover:text-black flex items-center justify-center backdrop-blur-md transition shadow-md cursor-pointer"
+                  title="Share product link"
+                >
+                  {copiedId === product.id ? (
+                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                  ) : (
+                    <Share2 className="w-3.5 h-3.5" />
+                  )}
+                </button>
+              </div>
+
+              {copiedId === product.id && (
+                <div className="absolute inset-x-2 bottom-2 bg-black/90 border border-[#C59B27] py-1 rounded-xl text-center text-[10px] font-bold text-[#C59B27] shadow-lg animate-fadeIn">
+                  Link Copied to Clipboard!
+                </div>
+              )}
+            </div>
+
+            {/* PRODUCT INFO */}
+            <div className="p-4 flex-1 flex flex-col justify-between">
+              <div>
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block truncate">
+                  {product.category || 'General'}
+                </span>
+                <h3 className="text-xs sm:text-sm font-black text-white line-clamp-1 group-hover:text-[#C59B27] transition mt-0.5">
+                  {product.name}
+                </h3>
+
+                {/* STAR RATING */}
+                <div className="flex items-center gap-1 mt-1 text-amber-400">
+                  <Star className="w-3 h-3 fill-amber-400" />
+                  <span className="text-[11px] font-bold text-gray-300">4.8</span>
+                  <span className="text-[10px] text-gray-500 ml-1">({product.stock || 20} in stock)</span>
+                </div>
+              </div>
+
+              {/* PRICE & BUY BUTTON */}
+              <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-800/80">
                 <div>
-                  <div className="flex items-baseline gap-2 mb-2">
-                    <span className="text-sm font-extrabold text-gray-900">
-                      ₹{prod.price.toLocaleString('en-IN')}
-                    </span>
-                    {prod.original_price && (
-                      <span className="text-[11px] text-gray-400 line-through">
-                        ₹{prod.original_price.toLocaleString('en-IN')}
-                      </span>
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-sm sm:text-base font-black text-[#C59B27]">₹{product.price}</span>
+                    {product.original_price && (
+                      <span className="text-[10px] text-gray-500 line-through">₹{product.original_price}</span>
                     )}
                   </div>
-
-                  <button
-                    onClick={() => addToCart(prod)}
-                    className="w-full bg-[#C59B27] hover:bg-[#B0881E] text-white text-[11px] font-bold py-2 rounded-lg flex items-center justify-center gap-1.5 transition shadow-sm cursor-pointer"
-                  >
-                    <ShoppingCart className="w-3.5 h-3.5" />
-                    ADD TO CART
-                  </button>
                 </div>
+
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onAddToCart(product);
+                  }}
+                  className="px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-[#C59B27] text-gray-300 hover:text-black font-black text-xs flex items-center gap-1 transition cursor-pointer border border-gray-700"
+                >
+                  <ShoppingBag className="w-3.5 h-3.5" /> Buy
+                </button>
               </div>
             </div>
-          );
-        })}
-      </div>
-    </section>
+          </div>
+        );
+      })}
+    </div>
   );
 };

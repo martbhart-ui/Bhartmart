@@ -1,60 +1,101 @@
-import React from 'react';
-import { handleImageError } from '../lib/supabase';
+import React, { useEffect, useState } from 'react';
+import { supabase } from '../lib/supabase';
+import { Sparkles } from 'lucide-react';
 
 interface CategoryListProps {
   selectedCategory: string | null;
-  onSelectCategory: (id: string | null) => void;
+  onSelectCategory: (category: string | null) => void;
 }
 
 export const CategoryList: React.FC<CategoryListProps> = ({
   selectedCategory,
-  onSelectCategory
+  onSelectCategory,
 }) => {
-  const categories = [
-    { id: 'men', name: "Men's Wear", img: 'https://images.unsplash.com/photo-1617137984095-74e4e5e3613f?w=400' },
-    { id: 'women', name: "Women's Wear", img: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=400' },
-    { id: 'tshirts', name: 'T-Shirts', img: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=400' },
-    { id: 'hoodies', name: 'Hoodies', img: 'https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=400' },
-    { id: 'accessories', name: 'Accessories', img: 'https://images.unsplash.com/photo-1588850561407-ed78c282e89b?w=400' },
-    { id: 'footwear', name: 'Footwear', img: 'https://images.unsplash.com/photo-1549298916-b41d501d3772?w=400' },
-    { id: 'home', name: 'Home & Living', img: 'https://images.unsplash.com/photo-1583847268964-b28dc8f51f92?w=400' },
-    { id: 'beauty', name: 'Beauty & Care', img: 'https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=400' }
-  ];
+  const [categories, setCategories] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetchCategories();
+
+    // Supabase Realtime Subscription for instant live sync
+    const channel = supabase
+      .channel('categories-sync')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, () => {
+        fetchCategories();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  const fetchCategories = async () => {
+    const { data } = await supabase.from('categories').select('*').order('created_at', { ascending: true });
+    if (data && data.length > 0) {
+      setCategories(data);
+    } else {
+      // Default Fallback
+      setCategories([
+        { id: '1', name: 'All Products', image_url: 'https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=400' },
+        { id: '2', name: 'Footwear', image_url: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400' },
+        { id: '3', name: 'Hoodies', image_url: 'https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=400' },
+        { id: '4', name: 'Anime Merch', image_url: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?w=400' },
+      ]);
+    }
+  };
 
   return (
-    <section className="max-w-7xl mx-auto px-4 py-8">
-      {/* Title with decorative wings */}
-      <div className="text-center mb-6">
-        <span className="text-xs text-[#C59B27] uppercase tracking-[0.2em] font-extrabold flex items-center justify-center gap-2">
-          <span>———</span> SHOP BY CATEGORY <span>———</span>
-        </span>
+    <section className="max-w-7xl mx-auto px-4 py-6">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h3 className="text-base sm:text-lg font-black text-gray-900 tracking-tight flex items-center gap-1.5">
+            <Sparkles className="w-4 h-4 text-[#C59B27]" /> Explore Categories
+          </h3>
+          <p className="text-xs text-gray-500">Pick a category to filter the collection</p>
+        </div>
+
+        {selectedCategory && (
+          <button
+            onClick={() => onSelectCategory(null)}
+            className="text-xs font-bold text-[#C59B27] hover:underline cursor-pointer"
+          >
+            Show All Items
+          </button>
+        )}
       </div>
 
-      {/* Categories Horizontal Grid */}
-      <div className="grid grid-cols-4 sm:grid-cols-8 gap-3 sm:gap-4">
+      {/* Categories Horizontal Scroll / Grid */}
+      <div className="flex items-center gap-3.5 overflow-x-auto pb-2 scrollbar-none">
+        <button
+          onClick={() => onSelectCategory(null)}
+          className={`shrink-0 flex items-center gap-2.5 px-4 py-2 rounded-2xl text-xs font-bold transition cursor-pointer border ${
+            selectedCategory === null
+              ? 'bg-black text-white border-black shadow-md'
+              : 'bg-white text-gray-700 border-gray-200 hover:border-black'
+          }`}
+        >
+          All Items
+        </button>
+
         {categories.map((cat) => {
-          const isSelected = selectedCategory === cat.id;
+          const isSelected = selectedCategory?.toLowerCase() === cat.name?.toLowerCase();
           return (
-            <div
+            <button
               key={cat.id}
-              onClick={() => onSelectCategory(isSelected ? null : cat.id)}
-              className={`flex flex-col items-center text-center cursor-pointer group p-2 rounded-xl transition ${
-                isSelected ? 'bg-amber-50 ring-2 ring-[#C59B27]' : 'hover:bg-white'
+              onClick={() => onSelectCategory(isSelected ? null : cat.name)}
+              className={`shrink-0 flex items-center gap-2.5 pl-2 pr-4 py-1.5 rounded-2xl text-xs font-bold transition cursor-pointer border ${
+                isSelected
+                  ? 'bg-[#C59B27] text-white border-[#C59B27] shadow-md'
+                  : 'bg-white text-gray-800 border-gray-200 hover:border-gray-300'
               }`}
             >
-              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden bg-gray-100 border-2 border-gray-200 group-hover:border-[#C59B27] transition shadow-sm mb-2">
-                <img
-                  src={cat.img}
-                  alt={cat.name}
-                  onError={handleImageError}
-                  className="w-full h-full object-cover group-hover:scale-110 transition duration-300"
-                />
-              </div>
-              <h3 className="text-xs font-semibold text-gray-800 line-clamp-1 group-hover:text-[#C59B27] transition">
-                {cat.name}
-              </h3>
-              <span className="text-[10px] text-gray-400 font-medium">Explore Now</span>
-            </div>
+              <img
+                src={cat.image_url}
+                alt={cat.name}
+                className="w-7 h-7 rounded-xl object-cover border border-gray-100 shrink-0"
+              />
+              <span className="whitespace-nowrap">{cat.name}</span>
+            </button>
           );
         })}
       </div>

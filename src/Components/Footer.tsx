@@ -1,135 +1,120 @@
-import React from 'react';
-import { Phone, Mail, MapPin, Truck, RotateCcw, ShieldCheck, Lock, Award } from 'lucide-react';
+import React, { useState } from 'react';
+import { ShieldCheck, Truck, RotateCcw, Headphones, Lock } from 'lucide-react';
+import { LegalModal } from './LegalModal';
 
 interface FooterProps {
-  onAdminClick: () => void;
+  onSecretAdminClick: () => void;
 }
 
-export const Footer: React.FC<FooterProps> = ({ onAdminClick }) => {
+export const Footer: React.FC<FooterProps> = ({ onSecretAdminClick }) => {
+  const [legalType, setLegalType] = useState<'returns' | 'privacy' | 'terms' | null>(null);
+
   return (
-    <footer className="bg-[#0A0E17] text-white border-t border-gray-800/80 mt-16">
-      {/* Newsletter Section */}
-      <div className="border-b border-gray-800/60 py-8 px-4 bg-[#0D121F]">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          <div>
-            <h4 className="text-sm font-bold tracking-wider uppercase text-white flex items-center gap-2">
-              <Mail className="w-4 h-4 text-[#C59B27]" /> JOIN OUR NEWSLETTER
-            </h4>
-            <p className="text-xs text-gray-400 mt-1">Get exclusive offers, new arrivals & more updates.</p>
-          </div>
-          <div className="flex w-full md:w-auto max-w-md gap-2">
-            <input
-              type="email"
-              placeholder="Enter your email..."
-              className="bg-black/60 border border-gray-700 text-xs px-4 py-2.5 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-[#C59B27] flex-1"
-            />
-            <button className="bg-[#C59B27] hover:bg-[#B0881E] text-white text-xs font-bold px-5 py-2.5 rounded-lg transition whitespace-nowrap">
-              SUBSCRIBE
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Footer (Photo 2 exact layout) */}
-      <div className="max-w-7xl mx-auto px-6 py-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-        {/* Brand */}
-        <div>
-          <div className="flex items-center gap-2.5 mb-3">
-            <div className="w-9 h-9 rounded-lg bg-[#C59B27] flex items-center justify-center font-black text-black text-lg shadow">
-              🏪
+    <>
+      <footer className="bg-neutral-950 text-white border-t border-[#C59B27]/20 pt-12 pb-8 mt-16">
+        <div className="max-w-7xl mx-auto px-4 space-y-10">
+          {/* 4 Feature Highlights */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 py-6 border-b border-neutral-800">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-neutral-900 border border-[#C59B27]/40 text-[#C59B27] rounded-2xl">
+                <Truck className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-xs font-black tracking-wide text-neutral-200 uppercase">Express Dispatch</h4>
+                <p className="text-[11px] text-neutral-400">All India 3-5 Day Delivery</p>
+              </div>
             </div>
-            <span className="text-lg font-black tracking-wider text-white uppercase">
-              BHART MART
-            </span>
-          </div>
-          <p className="text-xs text-gray-400 leading-relaxed">
-            India's most trusted online destination for premium lifestyle, fashion, electronics, and daily essentials at unbeatable prices.
-          </p>
-        </div>
 
-        {/* Quick Links (Photo 2) */}
-        <div>
-          <h4 className="text-xs font-black tracking-wider text-[#C59B27] uppercase mb-4">
-            QUICK LINKS
-          </h4>
-          <ul className="space-y-2.5 text-xs text-gray-300 font-medium">
-            <li><a href="#" className="hover:text-[#C59B27] transition">Home</a></li>
-            <li><a href="#products" className="hover:text-[#C59B27] transition">All Products</a></li>
-            <li><a href="#products" className="hover:text-[#C59B27] transition">Cart</a></li>
-            <li><a href="#products" className="hover:text-[#C59B27] transition">My Orders</a></li>
-            <li><a href="#products" className="hover:text-[#C59B27] transition">Liked Products</a></li>
-            <li><a href="#" className="flex items-center gap-1.5 hover:text-[#C59B27] transition">🚚 Track Order</a></li>
-            <li>
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-neutral-900 border border-[#C59B27]/40 text-[#C59B27] rounded-2xl">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-xs font-black tracking-wide text-neutral-200 uppercase">Doorstep COD</h4>
+                <p className="text-[11px] text-neutral-400">Inspect & Pay on Delivery</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-neutral-900 border border-[#C59B27]/40 text-[#C59B27] rounded-2xl">
+                <RotateCcw className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-xs font-black tracking-wide text-neutral-200 uppercase">7-Day Returns</h4>
+                <p className="text-[11px] text-neutral-400">Zero-Hassle Exchange</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-neutral-900 border border-[#C59B27]/40 text-[#C59B27] rounded-2xl">
+                <Headphones className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-xs font-black tracking-wide text-neutral-200 uppercase">Concierge Support</h4>
+                <p className="text-[11px] text-neutral-400">Instant VIP Resolution</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Center Brand Identity & Trust Seals */}
+          <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+            <div className="flex items-center gap-3">
               <button
-                onClick={onAdminClick}
-                className="flex items-center gap-1.5 text-[#C59B27] hover:underline font-bold"
+                type="button"
+                onClick={onSecretAdminClick}
+                title="BhartMart Admin"
+                className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#C59B27] to-[#8F6F16] text-black font-black text-sm flex items-center justify-center cursor-pointer transition hover:scale-105 active:scale-95 shadow-lg shadow-[#C59B27]/20"
               >
-                🛡️ Owner Admin Panel
+                BM
               </button>
-            </li>
-          </ul>
-        </div>
-
-        {/* Categories (Photo 2) */}
-        <div>
-          <h4 className="text-xs font-black tracking-wider text-[#C59B27] uppercase mb-4">
-            CATEGORIES
-          </h4>
-          <ul className="space-y-2.5 text-xs text-gray-300 font-medium">
-            <li><a href="#products" className="hover:text-[#C59B27] transition">Electronics</a></li>
-            <li><a href="#products" className="hover:text-[#C59B27] transition">Fashion</a></li>
-            <li><a href="#products" className="hover:text-[#C59B27] transition">Home & Kitchen</a></li>
-            <li><a href="#products" className="hover:text-[#C59B27] transition">Grocery</a></li>
-          </ul>
-        </div>
-
-        {/* Contact Us (Photo 2 exact details) */}
-        <div>
-          <h4 className="text-xs font-black tracking-wider text-[#C59B27] uppercase mb-4">
-            CONTACT US
-          </h4>
-          <div className="space-y-3 text-xs text-gray-300">
-            <div className="flex items-center gap-2">
-              <Phone className="w-4 h-4 text-[#C59B27] shrink-0" />
-              <span>+91 9022482630 / +91 9310850160</span>
+              <div>
+                <h3 className="text-base font-black tracking-wider text-white">
+                  BHART<span className="text-[#C59B27]">MART</span>
+                </h3>
+                <p className="text-[10px] uppercase tracking-widest text-neutral-400">
+                  Haute Quality • Certified Indian Dropship
+                </p>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Mail className="w-4 h-4 text-[#C59B27] shrink-0" />
-              <span>martbharat5@gmail.com</span>
-            </div>
-            <div className="flex items-start gap-2">
-              <MapPin className="w-4 h-4 text-[#C59B27] shrink-0 mt-0.5" />
-              <span>Nagpur - 440024 | Delhi - 440024</span>
+
+            {/* Clickable Trust Policies */}
+            <div className="flex flex-wrap items-center justify-center gap-6 text-xs font-semibold text-neutral-400">
+              <button
+                onClick={() => setLegalType('returns')}
+                className="hover:text-[#C59B27] transition cursor-pointer"
+              >
+                Return Guarantee
+              </button>
+              <span>•</span>
+              <button
+                onClick={() => setLegalType('privacy')}
+                className="hover:text-[#C59B27] transition cursor-pointer"
+              >
+                Privacy Promise
+              </button>
+              <span>•</span>
+              <button
+                onClick={() => setLegalType('terms')}
+                className="hover:text-[#C59B27] transition cursor-pointer"
+              >
+                Terms of Order
+              </button>
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* Trust Badges Strip (Photo 2 exact) */}
-      <div className="border-t border-gray-800/80 py-4 px-4 bg-[#080B12]">
-        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-center gap-6 text-xs text-gray-300">
-          <span className="flex items-center gap-1.5 text-amber-200/90 font-semibold">
-            <Award className="w-3.5 h-3.5 text-[#C59B27]" /> 100% Original
-          </span>
-          <span className="flex items-center gap-1.5 text-amber-200/90 font-semibold">
-            <RotateCcw className="w-3.5 h-3.5 text-[#C59B27]" /> Easy Returns
-          </span>
-          <span className="flex items-center gap-1.5 text-amber-200/90 font-semibold">
-            <Lock className="w-3.5 h-3.5 text-[#C59B27]" /> Secure Payment
-          </span>
-          <span className="flex items-center gap-1.5 text-amber-200/90 font-semibold">
-            <Truck className="w-3.5 h-3.5 text-[#C59B27]" /> Fast Delivery
-          </span>
-          <span className="flex items-center gap-1.5 text-amber-200/90 font-semibold">
-            <ShieldCheck className="w-3.5 h-3.5 text-[#C59B27]" /> Made in India
-          </span>
+          {/* Bottom Security Disclaimer */}
+          <div className="pt-6 border-t border-neutral-900 flex flex-col sm:flex-row justify-between items-center gap-3 text-[11px] text-neutral-500">
+            <div className="flex items-center gap-1.5">
+              <Lock className="w-3.5 h-3.5 text-[#C59B27]" />
+              <span>SSL Secured & Verified 256-Bit Encrypted Platform</span>
+            </div>
+            <p>© 2026 BhartMart. Crafted for Discerning Shoppers.</p>
+          </div>
         </div>
-      </div>
+      </footer>
 
-      {/* Copyright Line */}
-      <div className="border-t border-gray-900 py-3 text-center text-[11px] text-gray-500">
-        © 2026 BHART MART. All rights reserved. Built for speed and reliability.
-      </div>
-    </footer>
+      {/* Legal Modal Display */}
+      <LegalModal type={legalType} onClose={() => setLegalType(null)} />
+    </>
   );
 };
