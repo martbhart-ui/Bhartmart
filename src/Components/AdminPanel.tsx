@@ -786,17 +786,30 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
 
   const handleSaveShowcase = async () => {
     setSavingShowcase(true);
-    await supabase.from('showcase_settings').upsert([
-      {
-        id: 'limited_stock',
-        is_active: showcaseActive,
-        product_ids: selectedProductIds,
-        updated_at: new Date().toISOString(),
-      },
-    ]);
-    setSavingShowcase(false);
-    setThemeSaveSuccess(true);
-    setTimeout(() => setThemeSaveSuccess(false), 2500);
+    try {
+      const { error } = await supabase.from('showcase_settings').upsert([
+        {
+          id: 'limited_stock',
+          is_active: showcaseActive,
+          product_ids: selectedProductIds,
+          updated_at: new Date().toISOString(),
+        },
+      ]);
+
+      if (error) throw error;
+
+      localStorage.setItem('bm_limited_stock_active', String(showcaseActive));
+      localStorage.setItem('bm_limited_stock_ids', JSON.stringify(selectedProductIds));
+      window.dispatchEvent(new Event('storage'));
+
+      setThemeSaveSuccess(true);
+      setTimeout(() => setThemeSaveSuccess(false), 2500);
+      alert('✓ Limited Stock Showcase settings successfully saved!');
+    } catch (err: any) {
+      alert('Save Error: ' + (err.message || 'Failed to save showcase settings'));
+    } finally {
+      setSavingShowcase(false);
+    }
   };
 
   const toggleProductSelection = (id: string) => {
@@ -946,7 +959,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
   };
 
   if (!isOpen) return null;return (
-<div className="fixed inset-0 w-screen h-screen z-[9999] bg-[#0B0F17] text-gray-100 flex flex-col font-sans overflow-hidden">      {/* 1. TOP BAR */}
+<div className="fixed inset-0 w-full h-[100dvh] z-[9999] bg-[#0B0F17] text-gray-100 flex flex-col font-sans overflow-hidden select-none">      {/* 1. TOP BAR */}
       <header className="h-16 border-b border-gray-800 bg-[#111622] px-4 sm:px-8 flex items-center justify-between shrink-0 shadow-md">
         <div className="flex items-center gap-4">
           <button
@@ -984,7 +997,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
           >
             <X className="w-5 h-5" />
           </button>
-        </div>
+        </div>.
       </header>
 
       {/* 2. NAVIGATION TABS */}
@@ -1158,7 +1171,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
       </div>
 
       {/* 3. MAIN DETAILED BODY */}
-      <main className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-8 bg-[#0B0F17] flex flex-col justify-start items-center" style={{ height: 'calc(100vh - 128px)', overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
+      <main 
+  className="flex-1 w-full overflow-y-scroll overscroll-contain p-4 sm:p-8 bg-[#0B0F17] flex flex-col items-center" 
+  style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' }}
+>
         {activeTab === 'products' && (
           <div className="max-w-6xl mx-auto space-y-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-[#141A28] p-5 rounded-3xl border border-gray-800 shadow-xl">
@@ -2738,7 +2754,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
       )}
 
       {activeTab === 'stockControl' && (
-        <div className="max-w-6xl mx-auto space-y-6">
+        <div className="w-full max-w-6xl mx-auto space-y-6 pb-48">
           <div className="p-6 bg-[#141A28] border border-gray-800 rounded-3xl shadow-xl">
             <h2 className="text-lg font-black text-white">Live Inventory & Stock Control</h2>
             <p className="text-xs text-gray-400 mt-1">Quickly adjust stock units directly</p>
@@ -2858,7 +2874,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
       )}
 
       {activeTab === 'limitedStock' && (
-        <div className="max-w-6xl mx-auto space-y-6">
+        <div className="w-full max-w-6xl mx-auto space-y-6 pb-48">
           <div className="p-6 bg-[#141A28] border border-gray-800 rounded-3xl flex justify-between items-center shadow-xl">
             <div>
               <h2 className="text-lg font-black text-white flex items-center gap-2">
