@@ -5,6 +5,7 @@ import {
   TrendingUp,
   Plus,
   Trash2,
+  Edit3,
   Layers,
   ArrowLeft,
   Search,
@@ -328,6 +329,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
   const [savingProduct, setSavingProduct] = useState(false);
   const [uploadingPrimary, setUploadingPrimary] = useState(false);
   const [uploadingGallery, setUploadingGallery] = useState(false);
+  // Edit Product State
+  const [editingProductId, setEditingProductId] = useState<string | null>(null);
+
+  // Direct Upload Loading States
+  const [uploadingBannerMedia, setUploadingBannerMedia] = useState(false);
+  const [uploadingCatImage, setUploadingCatImage] = useState(false);
+  const [uploadingShopCatImage, setUploadingShopCatImage] = useState(false);
 
   // Categories & Cards
   const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
@@ -504,6 +512,23 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
   };
 
   // Save product to database
+  // Cancel / Reset Product Form
+  const handleCancelEdit = () => {
+    setEditingProductId(null);
+    setNewTitle('');
+    setNewCategory('');
+    setShippingCharge('0');
+    setOriginalPrice('');
+    setNewPrice('');
+    setPrimaryMediaUrl('');
+    setAdditionalMediaUrls([]);
+    setNewStock('20');
+    setDescription('');
+    setIsTrending(false);
+    setHasSizes(true);
+  };
+
+  // Save or Update product to database
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTitle.trim() || !newPrice || !primaryMediaUrl.trim()) {
@@ -513,42 +538,127 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
 
     setSavingProduct(true);
     try {
-      const { data, error } = await supabase.from('products').insert([
-        {
-          name: newTitle.trim(),
-          category: newCategory || 'General',
-          price: Number(newPrice),
-          original_price: originalPrice ? Number(originalPrice) : null,
-          shipping_charge: Number(shippingCharge) || 0,
-          stock: Number(newStock) || 20,
-          image_url: primaryMediaUrl.trim(),
-          gallery_images: additionalMediaUrls,
-          description: description.trim(),
-          is_trending: isTrending,
-          has_sizes: hasSizes,
-        },
-      ]).select();
+      const productPayload = {
+        name: newTitle.trim(),
+        category: newCategory || 'General',
+        price: Number(newPrice),
+        original_price: originalPrice ? Number(originalPrice) : null,
+        shipping_charge: Number(shippingCharge) || 0,
+        stock: Number(newStock) || 20,
+        image_url: primaryMediaUrl.trim(),
+        gallery_images: additionalMediaUrls,
+        description: description.trim(),
+        is_trending: isTrending,
+        has_sizes: hasSizes,
+      };
 
-      if (error) throw error;
-      if (data && data[0]) setProducts((prev) => [data[0], ...prev]);
+      if (editingProductId) {
+        // UPDATE EXISTING PRODUCT
+        const { error } = await supabase
+          .from('products')
+          .update(productPayload)
+          .eq('id', editingProductId);
 
-      setNewTitle('');
-      setNewCategory('');
-      setShippingCharge('0');
-      setOriginalPrice('');
-      setNewPrice('');
-      setPrimaryMediaUrl('');
-      setAdditionalMediaUrls([]);
-      setNewStock('20');
-      setDescription('');
-      setIsTrending(false);
-      setHasSizes(true);
-      alert('Product saved permanently!');
+        if (error) throw error;
+
+        setProducts((prev) =>
+          prev.map((p) => (p.id === editingProductId ? { ...p, ...productPayload } : p))
+        );
+        alert('✓ Product updated permanently!');
+      } else {
+        // INSERT NEW PRODUCT
+        const { data, error } = await supabase
+          .from('products')
+          .insert([productPayload])
+          .select();
+
+        if (error) throw error;
+        if (data && data[0]) setProducts((prev) => [data[0], ...prev]);
+        alert('✓ Product saved permanently!');
+      }
+
+      handleCancelEdit();
+      setShowAddProductCard(false);
     } catch (err: any) {
       alert('Save failed: ' + err.message);
     } finally {
       setSavingProduct(false);
     }
+  };
+
+  // 1. Direct Hero Banner Upload to Supabase Storage
+  const handleUploadBannerMedia = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingBannerMedia(true);
+    try {
+      const ext = file.name.split('.').pop();
+      const path = `banners/banner-${Date.now()}.${ext}`;
+      const { error } = await supabase.storage.from('product-images').upload(path, file, { upsert: true });
+      if (error) throw error;
+      const { data } = supabase.storage.from('product-images').getPublicUrl(path);
+      setNewBannerMediaUrl(data.publicUrl);
+    } catch (err: any) {
+      alert('Upload failed: ' + err.message);
+    } finally {
+      setUploadingBannerMedia(false);
+    }
+  };
+
+  // 2. Direct Category Image Upload
+  const handleUploadCatImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingCatImage(true);
+    try {
+      const ext = file.name.split('.').pop();
+      const path = `categories/cat-${Date.now()}.${ext}`;
+      const { error } = await supabase.storage.from('product-images').upload(path, file, { upsert: true });
+      if (error) throw error;
+      const { data } = supabase.storage.from('product-images').getPublicUrl(path);
+      setCatImageUrl(data.publicUrl);
+    } catch (err: any) {
+      alert('Upload failed: ' + err.message);
+    } finally {
+      setUploadingCatImage(false);
+    }
+  };
+
+  // 3. Direct Shop By Category Image Upload
+  const handleUploadShopCatImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingShopCatImage(true);
+    try {
+      const ext = file.name.split('.').pop();
+      const path = `shop-cats/shop-${Date.now()}.${ext}`;
+      const { error } = await supabase.storage.from('product-images').upload(path, file, { upsert: true });
+      if (error) throw error;
+      const { data } = supabase.storage.from('product-images').getPublicUrl(path);
+      setShopCatImage(data.publicUrl);
+    } catch (err: any) {
+      alert('Upload failed: ' + err.message);
+    } finally {
+      setUploadingShopCatImage(false);
+    }
+  };
+
+  // 4. Fill Product Form for Editing
+  const handleStartEditProduct = (prod: any) => {
+    setEditingProductId(prod.id);
+    setNewTitle(prod.name || '');
+    setNewCategory(prod.category || '');
+    setShippingCharge(String(prod.shipping_charge || 0));
+    setOriginalPrice(prod.original_price ? String(prod.original_price) : '');
+    setNewPrice(String(prod.price || ''));
+    setPrimaryMediaUrl(prod.image_url || '');
+    setAdditionalMediaUrls(prod.gallery_images || []);
+    setNewStock(String(prod.stock || 20));
+    setDescription(prod.description || '');
+    setIsTrending(Boolean(prod.is_trending));
+    setHasSizes(prod.has_sizes !== false);
+    setShowAddProductCard(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleDeleteProduct = async (productId: string) => {
@@ -1441,7 +1551,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
                 <div className="flex justify-end items-center gap-3 pt-3 border-t border-gray-800">
                   <button
                     type="button"
-                    onClick={() => setShowAddProductCard(false)}
+                    onClick={() => { handleCancelEdit(); setShowAddProductCard(false); }}
                     className="px-5 py-2.5 bg-white/5 hover:bg-white/10 text-gray-300 font-bold text-xs rounded-xl cursor-pointer"
                   >
                     Cancel
@@ -1451,7 +1561,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
                     disabled={savingProduct || uploadingPrimary || uploadingGallery}
                     className="px-7 py-2.5 bg-[#ea580c] hover:bg-[#c2410c] text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-[#ea580c]/30 cursor-pointer"
                   >
-                    {savingProduct ? 'Saving...' : 'Save Product'}
+                    {savingProduct ? 'Saving...' : editingProductId ? 'Update Product Changes' : 'Save Product'}
                   </button>
                 </div>
               </form>
@@ -1494,11 +1604,24 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
                         <td className="p-3.5 text-gray-400">
                           {prod.gallery_images?.length ? `${prod.gallery_images.length} items` : '1 media'}
                         </td>
-                        <td className="p-3.5 text-right">
-                          <button onClick={() => handleDeleteProduct(prod.id)} className="p-1.5 text-gray-400 hover:text-rose-400 cursor-pointer">
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </td>
+                        <td className="p-3.5 text-right flex items-center justify-end gap-2">
+  <button
+    type="button"
+    onClick={() => handleStartEditProduct(prod)}
+    className="p-1.5 text-amber-400 hover:text-amber-300 bg-amber-500/10 rounded-lg transition cursor-pointer"
+    title="Edit Product"
+  >
+    <Edit3 className="w-4 h-4" />
+  </button>
+  <button 
+    type="button" 
+    onClick={() => handleDeleteProduct(prod.id)} 
+    className="p-1.5 text-gray-400 hover:text-rose-400 bg-white/5 rounded-lg transition cursor-pointer"
+    title="Delete Product"
+  >
+    <Trash2 className="w-4 h-4" />
+  </button>
+</td>
                       </tr>
                     ))}
                   </tbody>
@@ -2839,15 +2962,35 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
                 onChange={(e) => setNewBannerCategory(e.target.value)}
                 className="text-xs p-2.5 rounded-xl bg-[#0B0F17] border border-gray-700 text-white"
               />
-            </div>
+          </div>
+          <div className="flex items-center gap-2">
             <input
               type="url"
               required
-              placeholder="Media Image URL"
+              placeholder="Media Image URL or upload file"
               value={newBannerMediaUrl}
               onChange={(e) => setNewBannerMediaUrl(e.target.value)}
               className="w-full text-xs p-2.5 rounded-xl bg-[#0B0F17] border border-gray-700 text-white font-mono"
             />
+            <label className="px-3 py-2 rounded-xl border border-indigo-500/40 bg-indigo-500/10 text-indigo-400 text-xs font-bold hover:bg-indigo-500/20 cursor-pointer whitespace-nowrap flex items-center gap-1.5">
+              <Upload className="w-3.5 h-3.5" /> {uploadingBannerMedia ? 'Uploading...' : 'Upload Image'}
+              <input type="file" accept="image/*" onChange={handleUploadBannerMedia} disabled={uploadingBannerMedia} className="hidden" />
+            </label>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="url"
+              required
+              placeholder="Media Image URL or upload file"
+              value={newBannerMediaUrl}
+              onChange={(e) => setNewBannerMediaUrl(e.target.value)}
+              className="w-full text-xs p-2.5 rounded-xl bg-[#0B0F17] border border-gray-700 text-white font-mono"
+            />
+            <label className="px-3 py-2 rounded-xl border border-indigo-500/40 bg-indigo-500/10 text-indigo-400 text-xs font-bold hover:bg-indigo-500/20 cursor-pointer whitespace-nowrap flex items-center gap-1.5">
+              <Upload className="w-3.5 h-3.5" /> {uploadingBannerMedia ? 'Uploading...' : 'Upload Image'}
+              <input type="file" accept="image/*" onChange={handleUploadBannerMedia} disabled={uploadingBannerMedia} className="hidden" />
+            </label>
+          </div>
             <button type="submit" disabled={isSavingBanner} className="px-6 py-2.5 bg-indigo-600 text-white font-bold text-xs rounded-xl shadow-lg cursor-pointer">
               Add Slide
             </button>
@@ -2990,7 +3133,20 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
             </div>
             <form onSubmit={handleCreateCategory} className="space-y-3">
               <input type="text" required placeholder="Category Name" value={catName} onChange={(e) => setCatName(e.target.value)} className="w-full text-xs p-2.5 rounded-xl bg-[#0B0F17] border border-gray-700 text-white" />
-              <input type="url" required placeholder="Category Image URL" value={catImageUrl} onChange={(e) => setCatImageUrl(e.target.value)} className="w-full text-xs p-2.5 rounded-xl bg-[#0B0F17] border border-gray-700 text-white" />
+              <div className="flex items-center gap-2">
+  <input
+    type="url"
+    required
+    placeholder="Category Image URL or upload file"
+    value={catImageUrl}
+    onChange={(e) => setCatImageUrl(e.target.value)}
+    className="w-full text-xs p-2.5 rounded-xl bg-[#0B0F17] border border-gray-700 text-white"
+  />
+  <label className="px-3 py-2 rounded-xl border border-purple-500/40 bg-purple-500/10 text-purple-400 text-xs font-bold hover:bg-purple-500/20 cursor-pointer whitespace-nowrap flex items-center gap-1.5">
+    <Upload className="w-3.5 h-3.5" /> {uploadingCatImage ? 'Uploading...' : 'Upload'}
+    <input type="file" accept="image/*" onChange={handleUploadCatImage} disabled={uploadingCatImage} className="hidden" />
+  </label>
+</div>
               <button type="submit" disabled={savingCategory} className="w-full py-2.5 bg-purple-600 text-white font-bold text-xs rounded-xl cursor-pointer">Save Category</button>
             </form>
           </div>
@@ -3006,7 +3162,20 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
             </div>
             <form onSubmit={handleCreateShopCategory} className="space-y-3">
               <input type="text" required placeholder="Card Title" value={shopCatTitle} onChange={(e) => setShopCatTitle(e.target.value)} className="w-full text-xs p-2.5 rounded-xl bg-[#0B0F17] border border-gray-700 text-white" />
-              <input type="url" required placeholder="Image URL" value={shopCatImage} onChange={(e) => setShopCatImage(e.target.value)} className="w-full text-xs p-2.5 rounded-xl bg-[#0B0F17] border border-gray-700 text-white" />
+              <div className="flex items-center gap-2">
+  <input
+    type="url"
+    required
+    placeholder="Image URL or upload file"
+    value={shopCatImage}
+    onChange={(e) => setShopCatImage(e.target.value)}
+    className="w-full text-xs p-2.5 rounded-xl bg-[#0B0F17] border border-gray-700 text-white"
+  />
+  <label className="px-3 py-2 rounded-xl border border-rose-500/40 bg-rose-500/10 text-rose-400 text-xs font-bold hover:bg-rose-500/20 cursor-pointer whitespace-nowrap flex items-center gap-1.5">
+    <Upload className="w-3.5 h-3.5" /> {uploadingShopCatImage ? 'Uploading...' : 'Upload'}
+    <input type="file" accept="image/*" onChange={handleUploadShopCatImage} disabled={uploadingShopCatImage} className="hidden" />
+  </label>
+</div>
               <input type="text" placeholder="Filter Link (optional)" value={shopCatLink} onChange={(e) => setShopCatLink(e.target.value)} className="w-full text-xs p-2.5 rounded-xl bg-[#0B0F17] border border-gray-700 text-white" />
               <button type="submit" disabled={savingShopCat} className="w-full py-2.5 bg-rose-600 text-white font-bold text-xs rounded-xl cursor-pointer">Save Card</button>
             </form>
