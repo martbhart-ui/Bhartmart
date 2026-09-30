@@ -959,7 +959,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
   };
 
   if (!isOpen) return null;return (
-<div className="fixed inset-0 w-full h-[100dvh] z-[9999] bg-[#0B0F17] text-gray-100 flex flex-col font-sans overflow-hidden select-none">      {/* 1. TOP BAR */}
+<div className="fixed inset-0 w-full h-[100dvh] z-[9999] bg-[#0B0F17] text-gray-100 flex flex-col font-sans overflow-hidden">      {/* 1. TOP BAR */}
       <header className="h-16 border-b border-gray-800 bg-[#111622] px-4 sm:px-8 flex items-center justify-between shrink-0 shadow-md">
         <div className="flex items-center gap-4">
           <button
@@ -1583,7 +1583,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
             </div>
           </div>
         )}
-      </main>
 
       {activeTab === 'themeEngine' && (
         <div className="max-w-7xl mx-auto space-y-6">
@@ -2980,6 +2979,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
           </div>
         </div>
       )}
+      </main>
 
       {showAddCategoryModal && (
         <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
