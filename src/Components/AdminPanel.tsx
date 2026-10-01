@@ -2470,41 +2470,115 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
           </div>
 
           {[
-            { title: 'Like / Wishlist Sound', desc: 'Plays when customer clicks the heart icon', val: wishlistSound, setter: setWishlistSound },
-            { title: 'Add to Cart Sound', desc: 'Plays when customer adds a product to cart', val: cartSound, setter: setCartSound },
-            { title: 'Order Success Sound', desc: 'Plays when an order is successfully placed', val: orderSound, setter: setOrderSound },
-          ].map(({ title, desc, val, setter }, i) => (
-            <div key={i} className="p-6 bg-[#141A28] border border-gray-800 rounded-3xl space-y-3 shadow-xl">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="text-xs font-black text-white">{title}</h4>
-                  <p className="text-[11px] text-gray-400 mt-0.5">{desc}</p>
+              {
+                title: 'Like / Wishlist Sound',
+                desc: 'Plays when customer clicks the heart icon',
+                field: 'wishlistSound' as const,
+                val: localTheme.soundSettings?.wishlistSound || '',
+              },
+              {
+                title: 'Add to Cart Sound',
+                desc: 'Plays when customer adds a product to cart',
+                field: 'cartSound' as const,
+                val: localTheme.soundSettings?.cartSound || '',
+              },
+              {
+                title: 'Order Success Sound',
+                desc: 'Plays when an order is successfully placed',
+                field: 'orderSound' as const,
+                val: localTheme.soundSettings?.orderSound || '',
+              },
+            ].map(({ title, desc, field, val }, i) => (
+              <div key={i} className="p-6 bg-[#141A28] border border-gray-800 rounded-3xl space-y-3 shadow-xl">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-xs font-black text-white">{title}</h4>
+                    <p className="text-[11px] text-gray-400 mt-0.5">{desc}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!val) return alert('No sound file set');
+                      const audio = new Audio(val);
+                      audio.play().catch(() => alert('Could not play audio'));
+                    }}
+                    className="px-3 py-1.5 rounded-xl border border-gray-700 bg-white/5 hover:bg-white/10 text-xs font-bold text-amber-400 flex items-center gap-1.5 cursor-pointer transition"
+                  >
+                    <Play className="w-3.5 h-3.5" /> Test
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => handleTestAudio(val)}
-                  className="px-3 py-1.5 rounded-xl border border-gray-700 bg-white/5 hover:bg-white/10 text-xs font-bold text-sky-400 flex items-center gap-1.5 cursor-pointer"
-                >
-                  <Play className="w-3.5 h-3.5" /> Test
-                </button>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    type="text"
+                    placeholder="Paste audio URL or upload .mp3"
+                    value={val}
+                    onChange={(e) =>
+                      setLocalTheme((prev: any) => ({
+                        ...prev,
+                        soundSettings: { ...(prev.soundSettings || {}), [field]: e.target.value },
+                      }))
+                    }
+                    className="flex-1 min-w-[200px] text-xs px-3.5 py-2.5 rounded-xl bg-[#0B0F17] border border-gray-700 text-white font-mono focus:outline-none focus:border-amber-400"
+                  />
+                  <label className="flex items-center gap-1.5 px-4 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-black font-bold text-xs rounded-xl cursor-pointer shadow transition shrink-0">
+                    <span>Upload Audio</span>
+                    <input
+                      type="file"
+                      accept="audio/*,.mp3,.wav,.ogg"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        try {
+                          const fileExt = file.name.split('.').pop();
+                          const fileName = `${field}_${Date.now()}.${fileExt}`;
+                          const filePath = `store_sounds/${fileName}`;
+
+                          let uploadRes = await supabase.storage
+                            .from('public-images')
+                            .upload(filePath, file, { upsert: true });
+
+                          if (uploadRes.error) {
+                            uploadRes = await supabase.storage
+                              .from('products')
+                              .upload(filePath, file, { upsert: true });
+                            if (uploadRes.error) throw uploadRes.error;
+                            const { data } = supabase.storage.from('products').getPublicUrl(filePath);
+                            setLocalTheme((prev: any) => ({
+                              ...prev,
+                              soundSettings: { ...(prev.soundSettings || {}), [field]: data.publicUrl },
+                            }));
+                            return;
+                          }
+                          const { data } = supabase.storage.from('public-images').getPublicUrl(filePath);
+                          setLocalTheme((prev: any) => ({
+                            ...prev,
+                            soundSettings: { ...(prev.soundSettings || {}), [field]: data.publicUrl },
+                          }));
+                        } catch (err: any) {
+                          alert('Audio upload failed: ' + err.message);
+                        }
+                      }}
+                      className="hidden"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const success = await saveThemeToDb(localTheme);
+                      if (success) {
+                        alert('Sound saved to Supabase successfully!');
+                      } else {
+                        alert('Failed to save sound.');
+                      }
+                    }}
+                    className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-black font-black text-xs rounded-xl cursor-pointer shadow transition shrink-0"
+                  >
+                    Save
+                  </button>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={val}
-                  onChange={(e) => setter(e.target.value)}
-                  className="flex-1 text-xs px-3.5 py-2.5 rounded-xl bg-[#0B0F17] border border-gray-700 text-white font-mono outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={handleSaveSoundSettings}
-                  className="px-6 py-2.5 bg-[#ea580c] hover:bg-[#c2410c] text-white font-black text-xs rounded-xl cursor-pointer"
-                >
-                  Save
-                </button>
-              </div>
-            </div>
-          ))}
+            ))}
         </div>
       )}
 
