@@ -666,6 +666,17 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
     await supabase.from('products').delete().eq('id', productId);
     setProducts((prev) => prev.filter((p) => p.id !== productId));
   };
+  const handleDeleteOrder = async (orderId: string) => {
+    if (!confirm('Are you sure you want to delete this order?')) return;
+    try {
+      const { error } = await supabase.from('orders').delete().eq('id', orderId);
+      if (error) throw error;
+      setOrders((prev) => prev.filter((o) => o.id !== orderId));
+      alert('Order deleted successfully');
+    } catch (err: any) {
+      alert('Delete failed: ' + err.message);
+    }
+  };
 
   const handleUpdateStock = async (productId: string, newStock: number) => {
     const finalStock = Math.max(0, newStock);
@@ -958,16 +969,27 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
 
   const handleCreateCategory = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!catName || !catImageUrl) return;
+    if (!catName.trim()) return;
     setSavingCategory(true);
-    const { data } = await supabase.from('categories').insert([
-      { name: catName.trim(), image_url: catImageUrl.trim() },
-    ]).select();
-    if (data && data[0]) setCategories((prev) => [...prev, data[0]]);
-    setSavingCategory(false);
-    setShowAddCategoryModal(false);
-    setCatName('');
-    setCatImageUrl('');
+    try {
+      const { data, error } = await supabase
+        .from('categories')
+        .insert([{ name: catName.trim() }])
+        .select();
+
+      if (error) throw error;
+
+      if (data && data[0]) {
+        setCategories((prev) => [...prev, data[0]]);
+      }
+      setCatName('');
+      setShowAddCategoryModal(false);
+      alert('Category added successfully!');
+    } catch (err: any) {
+      alert('Failed to add category: ' + err.message);
+    } finally {
+      setSavingCategory(false);
+    }
   };
 
   const handleDeleteCategory = async (catId: string) => {
@@ -1686,18 +1708,31 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
                         <p className="text-[11px] text-gray-400">{order.address}, {order.pincode}</p>
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className="text-xs font-black text-white">₹{order.total_amount} (COD)</span>
-                        <select
-                          value={order.status || 'Pending'}
-                          disabled={updatingId === order.id}
-                          onChange={(e) => handleStatusChange(order.id, e.target.value)}
-                          className="text-xs font-bold bg-[#0B0F17] text-[#C59B27] border border-gray-700 rounded-lg p-2"
-                        >
-                          <option value="Pending">Confirmed</option>
-                          <option value="Shipped">Shipped</option>
-                          <option value="Out For Delivery">Out For Delivery</option>
-                          <option value="Delivered">Delivered</option>
-                        </select>
+                      <div className="text-right">
+                        <div className="text-[11px] font-mono text-gray-400">
+                          {order.created_at ? new Date(order.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Recent'}
+                        </div>
+                        <span className="text-xs font-black text-white">₹{order.total_amount}</span>
+                      </div>
+                      <select
+                        value={order.status || 'Pending'}
+                        disabled={updatingId === order.id}
+                        onChange={(e) => handleStatusChange(order.id, e.target.value)}
+                        className="text-xs font-bold bg-[#0B0F17] text-[#C59B27] border border-gray-700 rounded-lg p-2"
+                      >
+                        <option value="Pending">Confirmed</option>
+                        <option value="Shipped">Shipped</option>
+                        <option value="Out For Delivery">Out For Delivery</option>
+                        <option value="Delivered">Delivered</option>
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteOrder(order.id)}
+                        className="p-2 text-gray-400 hover:text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 rounded-lg transition cursor-pointer"
+                        title="Delete Order"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                       </div>
                     </div>
                   ))
@@ -3133,20 +3168,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
             </div>
             <form onSubmit={handleCreateCategory} className="space-y-3">
               <input type="text" required placeholder="Category Name" value={catName} onChange={(e) => setCatName(e.target.value)} className="w-full text-xs p-2.5 rounded-xl bg-[#0B0F17] border border-gray-700 text-white" />
-              <div className="flex items-center gap-2">
-  <input
-    type="url"
-    required
-    placeholder="Category Image URL or upload file"
-    value={catImageUrl}
-    onChange={(e) => setCatImageUrl(e.target.value)}
-    className="w-full text-xs p-2.5 rounded-xl bg-[#0B0F17] border border-gray-700 text-white"
-  />
-  <label className="px-3 py-2 rounded-xl border border-purple-500/40 bg-purple-500/10 text-purple-400 text-xs font-bold hover:bg-purple-500/20 cursor-pointer whitespace-nowrap flex items-center gap-1.5">
-    <Upload className="w-3.5 h-3.5" /> {uploadingCatImage ? 'Uploading...' : 'Upload'}
-    <input type="file" accept="image/*" onChange={handleUploadCatImage} disabled={uploadingCatImage} className="hidden" />
-  </label>
-</div>
               <button type="submit" disabled={savingCategory} className="w-full py-2.5 bg-purple-600 text-white font-bold text-xs rounded-xl cursor-pointer">Save Category</button>
             </form>
           </div>
