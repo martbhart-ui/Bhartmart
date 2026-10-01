@@ -874,6 +874,42 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
       alert('Wallpaper upload failed: ' + err.message);
     }
   };
+  const handleFaviconUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `favicon_${Date.now()}.${fileExt}`;
+      const filePath = `store_favicons/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('public-images')
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) {
+        const { error: fallbackError } = await supabase.storage
+          .from('products')
+          .upload(filePath, file, { upsert: true });
+        if (fallbackError) throw fallbackError;
+
+        const { data: publicData } = supabase.storage.from('products').getPublicUrl(filePath);
+        setLocalTheme((prev: any) => ({
+          ...prev,
+          logoSettings: { ...(prev.logoSettings || {}), faviconUrl: publicData.publicUrl }
+        }));
+        return;
+      }
+
+      const { data: publicData } = supabase.storage.from('public-images').getPublicUrl(filePath);
+      setLocalTheme((prev: any) => ({
+        ...prev,
+        logoSettings: { ...(prev.logoSettings || {}), faviconUrl: publicData.publicUrl }
+      }));
+    } catch (err: any) {
+      alert('Favicon upload failed: ' + err.message);
+    }
+  };
   const handleSaveThemeSettings = async () => {
   setIsSavingTheme(true);
   try {
@@ -2294,29 +2330,68 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
           </div>
 
           <div className="p-6 bg-[#141A28] border border-gray-800 rounded-3xl space-y-4">
-            <h3 className="text-xs font-black text-gray-300 uppercase tracking-wider flex items-center gap-2">
-              <ImageIcon className="w-4 h-4 text-[#C59B27]" /> Favicon (Browser Tab Icon)
-            </h3>
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-[#0B0F17] border border-gray-700 flex items-center justify-center shrink-0 overflow-hidden">
-                {faviconUrl ? (
-                  <img src={faviconUrl} alt="Favicon" className="w-7 h-7 object-contain" />
-                ) : (
-                  <ImageIcon className="w-5 h-5 text-gray-600" />
-                )}
-              </div>
-              <div className="flex-1">
-                <label className="text-[11px] font-bold text-gray-400 block mb-1">Favicon Image URL</label>
-                <input
-                  type="url"
-                  placeholder="https://.../favicon.ico or png"
-                  value={faviconUrl}
-                  onChange={(e) => setFaviconUrl(e.target.value)}
-                  className="w-full text-xs px-3.5 py-2.5 rounded-xl bg-[#0B0F17] border border-gray-700 text-white font-mono"
-                />
+              <h3 className="text-xs font-black text-gray-300 uppercase tracking-wider flex items-center gap-2">
+                <ImageIcon className="w-4 h-4 text-[#C59B27]" /> Favicon (Browser Tab Icon)
+              </h3>
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-[#0B0F17] border border-gray-700 flex items-center justify-center shrink-0 overflow-hidden p-1">
+                  {faviconUrl ? (
+                    <img src={faviconUrl} alt="Favicon" className="w-8 h-8 object-contain" />
+                  ) : (
+                    <ImageIcon className="w-5 h-5 text-gray-600" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-[220px]">
+                  <label className="text-[11px] font-bold text-gray-400 block mb-1">
+                    Favicon Image URL / Upload Icon
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="url"
+                      placeholder="https://.../favicon.ico or png"
+                      value={faviconUrl}
+                      onChange={(e) => setFaviconUrl(e.target.value)}
+                      className="w-full text-xs px-3.5 py-2.5 rounded-xl bg-[#0B0F17] border border-gray-700 text-white font-mono focus:outline-none focus:border-amber-400"
+                    />
+                    <label className="flex items-center gap-1.5 px-4 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-black font-bold text-xs rounded-xl cursor-pointer shadow transition shrink-0">
+                      <span>Upload Icon</span>
+                      <input
+                        type="file"
+                        accept="image/*,.ico"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          try {
+                            const fileExt = file.name.split('.').pop();
+                            const fileName = `favicon_${Date.now()}.${fileExt}`;
+                            const filePath = `store_favicons/${fileName}`;
+
+                            let uploadRes = await supabase.storage
+                              .from('public-images')
+                              .upload(filePath, file, { upsert: true });
+
+                            if (uploadRes.error) {
+                              uploadRes = await supabase.storage
+                                .from('products')
+                                .upload(filePath, file, { upsert: true });
+                              if (uploadRes.error) throw uploadRes.error;
+                              const { data } = supabase.storage.from('products').getPublicUrl(filePath);
+                              setFaviconUrl(data.publicUrl);
+                              return;
+                            }
+                            const { data } = supabase.storage.from('public-images').getPublicUrl(filePath);
+                            setFaviconUrl(data.publicUrl);
+                          } catch (err: any) {
+                            alert('Favicon upload failed: ' + err.message);
+                          }
+                        }}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
 
           <div className="p-6 bg-[#141A28] border border-gray-800 rounded-3xl space-y-3">
             <h3 className="text-xs font-black text-gray-300 uppercase tracking-wider flex items-center gap-2">
