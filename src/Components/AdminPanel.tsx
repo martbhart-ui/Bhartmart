@@ -844,6 +844,36 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
     updateTheme(updated);
   };
 
+  const handleWallpaperUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `wallpaper_${Date.now()}.${fileExt}`;
+      const filePath = `store_theme/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('public-images')
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) {
+        const { error: fallbackError } = await supabase.storage
+          .from('products')
+          .upload(filePath, file, { upsert: true });
+        if (fallbackError) throw fallbackError;
+
+        const { data: publicData } = supabase.storage.from('products').getPublicUrl(filePath);
+        setLocalTheme((prev: any) => ({ ...prev, backgroundImage: publicData.publicUrl }));
+        return;
+      }
+
+      const { data: publicData } = supabase.storage.from('public-images').getPublicUrl(filePath);
+      setLocalTheme((prev: any) => ({ ...prev, backgroundImage: publicData.publicUrl }));
+    } catch (err: any) {
+      alert('Wallpaper upload failed: ' + err.message);
+    }
+  };
   const handleSaveThemeSettings = async () => {
   setIsSavingTheme(true);
   try {
@@ -1805,16 +1835,25 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
                 <p className="text-xs text-gray-400">
                   Paste any Image URL (Navratri, Festive, or Brand Pattern) to display across the entire store background.
                 </p>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <input
                     type="text"
-                    placeholder="Paste Image URL (e.g. https://images.unsplash.com/...)"
+                    placeholder="Image URL or upload file"
                     value={localTheme.backgroundImage || ''}
                     onChange={(e) =>
                       setLocalTheme((prev: any) => ({ ...prev, backgroundImage: e.target.value }))
                     }
-                    className="flex-1 bg-black/60 border border-gray-700 rounded-xl px-4 py-2.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-amber-400"
+                    className="flex-1 min-w-[200px] bg-black/60 border border-gray-700 rounded-xl px-4 py-2.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-amber-400"
                   />
+                  <label className="flex items-center gap-1.5 px-4 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-black font-bold text-xs rounded-xl cursor-pointer shadow transition">
+                    <span>Upload Image</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleWallpaperUpload}
+                      className="hidden"
+                    />
+                  </label>
                   {localTheme.backgroundImage && (
                     <div className="w-10 h-10 rounded-lg overflow-hidden border border-amber-400/50 shrink-0">
                       <img src={localTheme.backgroundImage} alt="Preview" className="w-full h-full object-cover" />
