@@ -331,6 +331,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
   const [uploadingGallery, setUploadingGallery] = useState(false);
   // Edit Product State
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
+  // Reviews Management States
+  const [productReviews, setProductReviews] = useState<any[]>([]);
+  const [revName, setRevName] = useState('');
+  const [revRating, setRevRating] = useState(5);
+  const [revComment, setRevComment] = useState('');
+  const [revImageUrl, setRevImageUrl] = useState('');
+  const [isUploadingRevImg, setIsUploadingRevImg] = useState(false);
 
   // Direct Upload Loading States
   const [uploadingBannerMedia, setUploadingBannerMedia] = useState(false);
@@ -655,10 +662,81 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
     setAdditionalMediaUrls(prod.gallery_images || []);
     setNewStock(String(prod.stock || 20));
     setDescription(prod.description || '');
+    // Fetch attached reviews for this product
+    supabase.from('product_reviews').select('*').eq('product_id', prod.id).order('created_at', { ascending: false }).then(({ data }) => {
+      setProductReviews(data || []);
+    });
     setIsTrending(Boolean(prod.is_trending));
     setHasSizes(prod.has_sizes !== false);
     setShowAddProductCard(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+  const handleReviewImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploadingRevImg(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `rev_${Date.now()}.${fileExt}`;
+      const filePath = `reviews/${fileName}`;
+
+      let uploadRes = await supabase.storage.from('public-images').upload(filePath, file, { upsert: true });
+      if (uploadRes.error) {
+        uploadRes = await supabase.storage.from('products').upload(filePath, file, { upsert: true });
+        if (uploadRes.error) throw uploadRes.error;
+        const { data } = supabase.storage.from('products').getPublicUrl(filePath);
+        setRevImageUrl(data.publicUrl);
+      } else {
+        const { data } = supabase.storage.from('public-images').getPublicUrl(filePath);
+        setRevImageUrl(data.publicUrl);
+      }
+    } catch (err: any) {
+      alert('Review image upload failed: ' + err.message);
+    } finally {
+      setIsUploadingRevImg(false);
+    }
+  };
+
+  const handleAddReview = async () => {
+    if (!editingProductId) {
+      alert('Pehle neeche catalog se kisi product ki pencil icon par click karke edit mode me open karo!');
+      return;
+    }
+    if (!revName.trim() || !revComment.trim()) {
+      alert('Reviewer Name aur Comment daalna zaroori hai.');
+      return;
+    }
+
+    try {
+      const newRev = {
+        product_id: editingProductId,
+        user_name: revName.trim(),
+        rating: Number(revRating),
+        comment: revComment.trim(),
+        images: revImageUrl ? [revImageUrl] : [],
+      };
+
+      const { data, error } = await supabase.from('product_reviews').insert([newRev]).select().single();
+      if (error) throw error;
+      setProductReviews((prev) => [data, ...prev]);
+      setRevName('');
+      setRevComment('');
+      setRevImageUrl('');
+      alert('Review added successfully!');
+    } catch (err: any) {
+      alert('Error adding review: ' + err.message);
+    }
+  };
+
+  const handleDeleteProductReview = async (revId: string) => {
+    if (!confirm('Are you sure you want to delete this review?')) return;
+    try {
+      const { error } = await supabase.from('product_reviews').delete().eq('id', revId);
+      if (error) throw error;
+      setProductReviews((prev) => prev.filter((r) => r.id !== revId));
+    } catch (err: any) {
+      alert('Error deleting review: ' + err.message);
+    }
   };
 
   const handleDeleteProduct = async (productId: string) => {
@@ -1619,6 +1697,141 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
 
                 <div className="flex items-center justify-between p-4 bg-[#0B0F17] border border-gray-700 rounded-2xl">
   <div>
+    {/* PRODUCT REVIEWS & SOCIAL PROOF MANAGER */}
+            <div className="p-5 bg-[#0B0F17] border border-gray-800 rounded-2xl space-y-4">
+              <div className="flex items-center justify-between border-b border-gray-800/80 pb-3">
+                <div>
+                  <h4 className="text-xs font-black text-white uppercase tracking-wider flex items-center gap-2">
+                    <span className="text-amber-400">⭐</span> Customer Reviews & Photos Management
+                  </h4>
+                  <p className="text-[11px] text-gray-400 mt-0.5">
+                    Add customer reviews with direct photos to showcase on product page.
+                  </p>
+                </div>
+                {editingProductId && (
+                  <span className="text-[10px] bg-amber-500/20 text-amber-400 px-2.5 py-1 rounded-full font-bold">
+                    {productReviews.length} Reviews Attached
+                  </span>
+                )}
+              </div>
+
+              {!editingProductId ? (
+                <p className="text-xs text-amber-400/80 bg-amber-500/10 p-3 rounded-xl border border-amber-500/20">
+                  Select and edit a product from the list below to manage its reviews.
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  {/* Review Input Fields */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-gray-400 uppercase">Reviewer Name</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Rahul Sharma"
+                        value={revName}
+                        onChange={(e) => setRevName(e.target.value)}
+                        className="w-full text-xs px-3 py-2 rounded-xl bg-black/60 border border-gray-700 text-white focus:outline-none focus:border-amber-400"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-gray-400 uppercase">Rating</label>
+                      <select
+                        value={revRating}
+                        onChange={(e) => setRevRating(Number(e.target.value))}
+                        className="w-full text-xs px-3 py-2 rounded-xl bg-black/60 border border-gray-700 text-white focus:outline-none focus:border-amber-400"
+                      >
+                        <option value={5}>⭐⭐⭐⭐⭐ (5 Stars)</option>
+                        <option value={4}>⭐⭐⭐⭐ (4 Stars)</option>
+                        <option value={3}>⭐⭐⭐ (3 Stars)</option>
+                        <option value={2}>⭐⭐ (2 Stars)</option>
+                        <option value={1}>⭐ (1 Star)</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-gray-400 uppercase">Customer Photo</label>
+                      <div className="flex items-center gap-2">
+                        <label className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 text-black font-bold text-xs rounded-xl cursor-pointer shadow transition">
+                          <span>{isUploadingRevImg ? 'Uploading...' : 'Upload Photo'}</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleReviewImageUpload}
+                            className="hidden"
+                          />
+                        </label>
+                        {revImageUrl && (
+                          <div className="w-8 h-8 rounded-lg overflow-hidden border border-amber-400/50 shrink-0">
+                            <img src={revImageUrl} alt="Rev" className="w-full h-full object-cover" />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase">Review Feedback / Comment</label>
+                    <textarea
+                      rows={2}
+                      placeholder="e.g. Excellent fabric quality, looks exactly like the photos!"
+                      value={revComment}
+                      onChange={(e) => setRevComment(e.target.value)}
+                      className="w-full text-xs p-3 rounded-xl bg-black/60 border border-gray-700 text-white focus:outline-none focus:border-amber-400"
+                    />
+                  </div>
+
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={handleAddReview}
+                      className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-black font-black text-xs rounded-xl cursor-pointer shadow transition"
+                    >
+                      + Add This Review
+                    </button>
+                  </div>
+
+                  {/* Existing Attached Reviews List */}
+                  {productReviews.length > 0 && (
+                    <div className="pt-2 border-t border-gray-800 space-y-2 max-h-48 overflow-y-auto pr-1">
+                      {productReviews.map((rev) => (
+                        <div
+                          key={rev.id}
+                          className="flex items-center justify-between p-2.5 bg-black/40 border border-gray-800 rounded-xl"
+                        >
+                          <div className="flex items-center gap-3">
+                            {rev.images?.[0] ? (
+                              <img
+                                src={rev.images[0]}
+                                alt="Rev"
+                                className="w-10 h-10 rounded-lg object-cover border border-gray-700"
+                              />
+                            ) : (
+                              <div className="w-10 h-10 rounded-lg bg-gray-800 flex items-center justify-center text-[10px] text-gray-500">
+                                No Pic
+                              </div>
+                            )}
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold text-white">{rev.user_name}</span>
+                                <span className="text-[10px] text-amber-400">{'★'.repeat(rev.rating)}</span>
+                              </div>
+                              <p className="text-[11px] text-gray-400 line-clamp-1">{rev.comment}</p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteProductReview(rev.id)}
+                            className="p-1.5 hover:bg-rose-500/20 text-rose-400 rounded-lg transition cursor-pointer"
+                            title="Delete Review"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
     <span className="text-xs font-bold text-white block">Enable Size Selection (S, M, L, XL, XXL)</span>
     <span className="text-[10px] text-gray-400 block">Dryer ya electronics ke liye OFF rakhein, Kapde/Jooton ke liye ON karein</span>
   </div>
