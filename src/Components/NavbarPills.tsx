@@ -15,26 +15,53 @@ export const NavbarPills: React.FC<NavbarPillsProps> = ({
   isDarkMode,
   onToggleDarkMode,
 }) => {
-  const [navButtons, setNavButtons] = useState<any[]>([]);
+  const [categoriesList, setCategoriesList] = useState<any[]>([]);
 
-  useEffect(() => {
-    const fetchNavButtons = async () => {
-      const { data } = await supabase
-        .from('nav_buttons')
+  const fetchCategories = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('categories')
         .select('*')
-        .order('order_index', { ascending: true });
+        .order('id', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching categories:', error);
+        return;
+      }
+
       if (data && data.length > 0) {
-        setNavButtons(data);
+        setCategoriesList(data);
       } else {
-        setNavButtons([
-          { id: '1', label: 'Footwear', category_key: 'Footwear' },
-          { id: '2', label: 'T-Shirts', category_key: 'T-Shirts' },
-          { id: '3', label: 'Hoodies', category_key: 'Hoodies' },
-          { id: '4', label: 'Oversized', category_key: 'Oversized' },
+        setCategoriesList([
+          { id: '1', name: 'Footwear' },
+          { id: '2', name: 'T-Shirts' },
+          { id: '3', name: 'Hoodies' },
+          { id: '4', name: 'Oversized' },
         ]);
       }
+    } catch (err) {
+      console.error('Fetch categories failed:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchCategories();
+
+    // Realtime sync jab bhi category add ya delete ho
+    const channel = supabase
+      .channel('public:categories')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'categories' },
+        () => {
+          fetchCategories();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
     };
-    fetchNavButtons();
   }, []);
 
   return (
@@ -63,14 +90,15 @@ export const NavbarPills: React.FC<NavbarPillsProps> = ({
           </button>
 
           {/* DYNAMIC CATEGORY PILLS */}
-          {navButtons.map((btn) => {
+          {categoriesList.map((cat) => {
+            const catName = cat.name || cat.label || '';
             const isSelected =
-              selectedCategory?.toLowerCase() === btn.category_key.toLowerCase();
+              selectedCategory?.toLowerCase() === catName.toLowerCase();
             return (
               <button
-                key={btn.id}
+                key={cat.id}
                 type="button"
-                onClick={() => onSelectCategory(btn.category_key)}
+                onClick={() => onSelectCategory(catName)}
                 className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-wider transition cursor-pointer whitespace-nowrap ${
                   isSelected
                     ? 'bg-black text-[#C59B27] shadow-sm border border-[#C59B27]/40'
@@ -79,7 +107,7 @@ export const NavbarPills: React.FC<NavbarPillsProps> = ({
                     : 'bg-white text-gray-700 hover:text-black border border-gray-200 shadow-2xs'
                 }`}
               >
-                {btn.label}
+                {catName}
               </button>
             );
           })}
