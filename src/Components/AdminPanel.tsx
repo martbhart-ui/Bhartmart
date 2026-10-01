@@ -845,14 +845,23 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
   };
 
   const handleSaveThemeSettings = async () => {
-    setIsSavingTheme(true);
+  setIsSavingTheme(true);
+  try {
+    updateTheme(localTheme);
     const success = await saveThemeToDb(localTheme);
     setIsSavingTheme(false);
     if (success) {
       setThemeSaveSuccess(true);
       setTimeout(() => setThemeSaveSuccess(false), 2500);
+      alert('Theme & Background Wallpaper applied successfully!');
+    } else {
+      alert('Failed to save theme settings to database.');
     }
-  };
+  } catch (err: any) {
+    setIsSavingTheme(false);
+    alert('Error saving theme: ' + err.message);
+  }
+};
 
   const handleResetTheme = () => {
     if (confirm('Reset store theme to default colors & fonts?')) {
@@ -1777,6 +1786,42 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
             </div>
           </div>
 
+{/* FESTIVAL / CUSTOM BACKGROUND WALLPAPER */}
+              <div className="p-6 bg-[#141A28] border border-amber-500/30 rounded-3xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
+                    <span className="text-amber-400">✨</span> Store Background Wallpaper / Festival Theme
+                  </h3>
+                  {localTheme.backgroundImage && (
+                    <button
+                      type="button"
+                      onClick={() => setLocalTheme((prev: any) => ({ ...prev, backgroundImage: '' }))}
+                      className="text-xs text-red-400 hover:underline cursor-pointer"
+                    >
+                      Remove Wallpaper
+                    </button>
+                  )}
+                </div>
+                <p className="text-xs text-gray-400">
+                  Paste any Image URL (Navratri, Festive, or Brand Pattern) to display across the entire store background.
+                </p>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Paste Image URL (e.g. https://images.unsplash.com/...)"
+                    value={localTheme.backgroundImage || ''}
+                    onChange={(e) =>
+                      setLocalTheme((prev: any) => ({ ...prev, backgroundImage: e.target.value }))
+                    }
+                    className="flex-1 bg-black/60 border border-gray-700 rounded-xl px-4 py-2.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-amber-400"
+                  />
+                  {localTheme.backgroundImage && (
+                    <div className="w-10 h-10 rounded-lg overflow-hidden border border-amber-400/50 shrink-0">
+                      <img src={localTheme.backgroundImage} alt="Preview" className="w-full h-full object-cover" />
+                    </div>
+                  )}
+                </div>
+              </div>
           <div className="p-6 bg-[#141A28] border border-gray-800 rounded-3xl space-y-4">
             <h3 className="text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
               <Palette className="w-4 h-4 text-amber-400" /> Pre-made Professional Themes

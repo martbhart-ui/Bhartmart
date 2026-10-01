@@ -33,6 +33,8 @@ export interface SecurityConfig {
 
 export interface ThemeConfig {
   activePreset: string;
+  backgroundImage?: string;
+  backgroundOverlayOpacity?: number;
   colors: {
     background: string;
     cardBg: string;
@@ -70,14 +72,16 @@ export interface ThemeConfig {
 
 export const defaultTheme: ThemeConfig = {
   activePreset: 'Classic Store',
+  backgroundImage: '',
+  backgroundOverlayOpacity: 0.1,
   colors: {
-    background: '',
-    cardBg: '',
+    background: '#0B0F17',
+    cardBg: '#141A28',
     primary: '#C59B27',
     secondary: '#E5B842',
-    textPrimary: '',
-    textMuted: '',
-    borderColor: '',
+    textPrimary: '#FFFFFF',
+    textMuted: '#9CA3AF',
+    borderColor: '#374151',
   },
   typography: {
     headingFont: 'Plus Jakarta Sans',
@@ -177,8 +181,28 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const applyThemeToDOM = (t: ThemeConfig) => {
     const root = document.documentElement;
+    const body = document.body;
+
     if (t.colors.primary) root.style.setProperty('--bm-primary', t.colors.primary);
     if (t.colors.secondary) root.style.setProperty('--bm-secondary', t.colors.secondary);
+    if (t.colors.background) root.style.setProperty('--bm-bg', t.colors.background);
+    if (t.colors.cardBg) root.style.setProperty('--bm-card-bg', t.colors.cardBg);
+    if (t.colors.textPrimary) root.style.setProperty('--bm-text', t.colors.textPrimary);
+    if (t.colors.borderColor) root.style.setProperty('--bm-border', t.colors.borderColor);
+
+    // Apply Background Wallpaper / Festival Image
+    if (t.backgroundImage && t.backgroundImage.trim() !== '') {
+      body.style.backgroundImage = `url("${t.backgroundImage}")`;
+      body.style.backgroundSize = 'cover';
+      body.style.backgroundPosition = 'center';
+      body.style.backgroundAttachment = 'fixed';
+      body.style.backgroundRepeat = 'no-repeat';
+    } else {
+      body.style.backgroundImage = 'none';
+      if (t.colors.background) {
+        body.style.backgroundColor = t.colors.background;
+      }
+    }
 
     if (t.logoSettings?.faviconUrl) {
       let link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
@@ -255,7 +279,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       localStorage.setItem('bm_theme_config', JSON.stringify(themeToSave));
       return true;
     } catch (err) {
-      console.error('Error saving:', err);
+      console.error('Error saving theme:', err);
       return false;
     }
   };
