@@ -180,6 +180,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
   const [activeTab, setActiveTab] = useState<
     | 'overview'
     | 'ordersDispatch'
+    | 'customerOrders'
     | 'themeEngine'
     | 'logoFavicon'
     | 'soundSettings'
@@ -197,6 +198,40 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
   >('products');
 
   const [orders, setOrders] = useState<any[]>([]);
+  // Filter state for Customer Orders tab
+  const [orderDateFilter, setOrderDateFilter] = useState<'today' | 'yesterday' | '7days' | 'month' | 'all'>('all');
+
+  const filteredCustomerOrders = (orders || []).filter((ord: any) => {
+    if (orderDateFilter === 'all') return true;
+    const orderDate = new Date(ord.created_at);
+    const now = new Date();
+
+    if (orderDateFilter === 'today') {
+      return orderDate.toDateString() === now.toDateString();
+    }
+    if (orderDateFilter === 'yesterday') {
+      const yesterday = new Date();
+      yesterday.setDate(now.getDate() - 1);
+      return orderDate.toDateString() === yesterday.toDateString();
+    }
+    if (orderDateFilter === '7days') {
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(now.getDate() - 7);
+      return orderDate >= sevenDaysAgo;
+    }
+    if (orderDateFilter === 'month') {
+      return (
+        orderDate.getMonth() === now.getMonth() &&
+        orderDate.getFullYear() === now.getFullYear()
+      );
+    }
+    return true;
+  });
+
+  const filteredTotalRevenue = filteredCustomerOrders.reduce(
+    (sum: number, o: any) => sum + Number(o.total_amount || o.total || 0),
+    0
+  );
   const [products, setProducts] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [shopCategories, setShopCategories] = useState<any[]>([]);
@@ -1311,6 +1346,18 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
           </button>
 
           <button
+            type="button"
+            onClick={() => setActiveTab('customerOrders')}
+            className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 cursor-pointer transition shrink-0 ${
+              activeTab === 'customerOrders'
+                ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-black shadow-lg shadow-amber-500/20'
+                : 'bg-black/40 hover:bg-white/5 text-gray-300 border border-gray-800'
+            }`}
+          >
+            <span>📦</span> Customer Orders & Invoices ({orders.length})
+          </button>
+
+          <button
             onClick={() => setActiveTab('themeEngine')}
             className={`px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 cursor-pointer whitespace-nowrap ${
               activeTab === 'themeEngine'
@@ -1938,6 +1985,156 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
                 </table>
               </div>
             </div>
+          </div>
+        )}
+        {activeTab === 'customerOrders' && (
+          <div className="max-w-6xl mx-auto space-y-6">
+            {/* Top 2 Metric Boxes */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="p-6 bg-[#141A28] border border-gray-800 rounded-3xl space-y-1">
+                <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+                  Total Orders
+                </span>
+                <h3 className="text-3xl font-black text-white">
+                  {filteredCustomerOrders.length}
+                </h3>
+              </div>
+              <div className="p-6 bg-[#141A28] border border-gray-800 rounded-3xl space-y-1">
+                <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+                  Total Revenue
+                </span>
+                <h3 className="text-3xl font-black text-amber-400">
+                  ₹{filteredTotalRevenue.toLocaleString('en-IN')}
+                </h3>
+              </div>
+            </div>
+
+            {/* Filter Header with 4 Options */}
+            <div className="flex flex-wrap items-center justify-between gap-4 p-4 bg-[#141A28] border border-gray-800 rounded-2xl">
+              <div>
+                <h4 className="text-sm font-black text-white uppercase tracking-wider">
+                  Customer Orders & Invoices
+                </h4>
+                <p className="text-xs text-gray-400">
+                  Customer contact, delivery address, purchased items, size tags & invoice totals.
+                </p>
+              </div>
+
+              {/* Date Filter Dropdown */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-400 font-bold">Filter By:</span>
+                <select
+                  value={orderDateFilter}
+                  onChange={(e: any) => setOrderDateFilter(e.target.value)}
+                  className="bg-[#0B0F17] border border-gray-700 text-white text-xs font-bold px-3 py-2 rounded-xl focus:outline-none focus:border-amber-400 cursor-pointer"
+                >
+                  <option value="all">All Time Orders</option>
+                  <option value="today">Today's Orders</option>
+                  <option value="yesterday">Yesterday's Orders</option>
+                  <option value="7days">Last 7 Days</option>
+                  <option value="month">This Month</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Orders Cards List */}
+            {filteredCustomerOrders.length === 0 ? (
+              <div className="p-12 text-center bg-[#141A28] border border-gray-800 rounded-3xl text-gray-400 text-xs">
+                No customer orders found for this selected period.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {filteredCustomerOrders.map((ord: any) => {
+                  const items = ord.order_items || ord.items || [];
+                  return (
+                    <div
+                      key={ord.id}
+                      className="p-6 bg-[#141A28] border border-gray-800 rounded-3xl space-y-4 hover:border-gray-700 transition"
+                    >
+                      {/* Order Header */}
+                      <div className="flex flex-wrap items-center justify-between border-b border-gray-800/80 pb-3 gap-2">
+                        <div className="flex items-center gap-3">
+                          <span className="font-mono text-xs font-black text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-lg border border-amber-500/20">
+                            #{ord.id?.slice(0, 8)}
+                          </span>
+                          <span className="text-xs text-gray-400">
+                            {new Date(ord.created_at).toLocaleString('en-IN', {
+                              dateStyle: 'medium',
+                              timeStyle: 'short',
+                            })}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <span className="text-sm font-black text-white">
+                            Total: ₹{Number(ord.total_amount || ord.total || 0).toLocaleString('en-IN')}
+                          </span>
+                          <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                            {ord.status || 'Confirmed'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Main Details Grid */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Customer Information */}
+                        <div className="space-y-2 text-xs">
+                          <span className="text-[10px] font-black text-gray-500 uppercase tracking-wider block">
+                            Customer Details
+                          </span>
+                          <div className="p-3.5 bg-black/40 rounded-xl border border-gray-800 space-y-1">
+                            <p className="text-white font-bold text-sm">
+                              {ord.customer_name || ord.name || 'Anonymous Customer'}
+                            </p>
+                            <p className="text-amber-400 font-mono">
+                              📞 {ord.customer_phone || ord.phone || 'No phone provided'}
+                            </p>
+                            <p className="text-gray-300 leading-relaxed pt-1">
+                              📍 {ord.customer_address || ord.address || ord.shipping_address || 'No address provided'}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Items Purchased & Size */}
+                        <div className="space-y-2 text-xs">
+                          <span className="text-[10px] font-black text-gray-500 uppercase tracking-wider block">
+                            Items & Size Details
+                          </span>
+                          <div className="space-y-2">
+                            {items.length > 0 ? (
+                              items.map((item: any, idx: number) => (
+                                <div
+                                  key={idx}
+                                  className="p-3 bg-black/40 rounded-xl border border-gray-800 flex items-center justify-between gap-3"
+                                >
+                                  <div>
+                                    <p className="text-white font-bold">{item.title || item.name || 'Product'}</p>
+                                    <div className="flex items-center gap-2 mt-1">
+                                      <span className="text-gray-400">Qty: {item.quantity || 1}</span>
+                                      {item.selected_size && (
+                                        <span className="text-[10px] bg-amber-500/20 text-amber-300 font-black px-2 py-0.5 rounded-md border border-amber-500/30">
+                                          Size: {item.selected_size}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <span className="font-mono text-xs font-bold text-white">
+                                    ₹{Number(item.price || 0) * (item.quantity || 1)}
+                                  </span>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="p-3 bg-black/40 rounded-xl border border-gray-800 text-gray-400">
+                                Single item order (check raw order record)
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
