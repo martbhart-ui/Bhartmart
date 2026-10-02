@@ -9,6 +9,7 @@ import {
   Headphones,
   Truck,
   X,
+  LogOut,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
@@ -56,7 +57,10 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleTheme,
   toggleTheme,
 }) => {
-  // 1. Global & Real-time Logo Sync with Supabase + LocalStorage Backup
+  // 1. User Auth State
+  const [currentUser, setCurrentUser] = useState<any>(null);
+
+  // 2. Global & Real-time Logo Sync with Supabase + LocalStorage Backup
   const [customLogo, setCustomLogo] = useState<string | null>(() => {
     try {
       return localStorage.getItem('bm_custom_logo') || null;
@@ -82,10 +86,22 @@ export const Header: React.FC<HeaderProps> = ({
   });
 
   useEffect(() => {
-    // 1. Initial Fetch Supabase database se
+    // A. Check initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setCurrentUser(session?.user ?? null);
+    });
+
+    // B. Real-time auth listener (Google redirect ke baad turant detect karega)
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setCurrentUser(session?.user ?? null);
+    });
+
+    // C. Fetch Supabase database global logo
     const fetchGlobalLogo = async () => {
       try {
-        const { data, error } = await supabase
+        const { data } = await supabase
           .from('site_settings')
           .select('logo_url')
           .eq('id', 'global_config')
@@ -102,7 +118,7 @@ export const Header: React.FC<HeaderProps> = ({
 
     fetchGlobalLogo();
 
-    // 2. Real-time broadcast listener taaki sabhi phones pe live change ho
+    // D. Real-time broadcast listener for logo
     const channel = supabase
       .channel('header_realtime_logo')
       .on(
@@ -117,7 +133,7 @@ export const Header: React.FC<HeaderProps> = ({
       )
       .subscribe();
 
-    // 3. Local browser changes sync
+    // E. Local browser changes sync
     const syncLocal = () => {
       try {
         setLogoWidth(Number(localStorage.getItem('bm_logo_width')) || 100);
@@ -127,6 +143,7 @@ export const Header: React.FC<HeaderProps> = ({
     window.addEventListener('storage', syncLocal);
 
     return () => {
+      subscription.unsubscribe();
       supabase.removeChannel(channel);
       window.removeEventListener('storage', syncLocal);
     };
@@ -134,11 +151,16 @@ export const Header: React.FC<HeaderProps> = ({
 
   // Unified Handlers
   const handleAuthClick = () => {
-    if (onOpenAuth) onOpenAuth();
-    else if (onOpenAdminLogin) onOpenAdminLogin();
-    else if (onOpenProfile) onOpenProfile();
-    else if (onOpenLogin) onOpenLogin();
-    else if (onOpenUser) onOpenUser();
+    if (currentUser) {
+      if (onOpenProfile) onOpenProfile();
+      else if (onOpenUser) onOpenUser();
+    } else {
+      if (onOpenAuth) onOpenAuth();
+      else if (onOpenLogin) onOpenLogin();
+      else if (onOpenAdminLogin) onOpenAdminLogin();
+      else if (onOpenProfile) onOpenProfile();
+      else if (onOpenUser) onOpenUser();
+    }
   };
 
   const handleDarkToggle = () => {
@@ -147,6 +169,14 @@ export const Header: React.FC<HeaderProps> = ({
     else if (onToggleTheme) onToggleTheme();
     else if (toggleTheme) toggleTheme();
   };
+
+  // User Display Info (Google se jo naam/avatar aata hai)
+  const userAvatar = currentUser?.user_metadata?.avatar_url || currentUser?.user_metadata?.picture;
+  const userName =
+    currentUser?.user_metadata?.full_name ||
+    currentUser?.user_metadata?.name ||
+    currentUser?.email?.split('@')[0] ||
+    'User';
 
   return (
     <header className="sticky top-0 z-[50] bg-[#111622]/95 backdrop-blur-md border-b border-gray-800/80 transition-colors duration-300">
@@ -184,7 +214,7 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* 2. MAIN HEADER NAVIGATION BAR */}
       <div className="max-w-7xl mx-auto px-4 sm:px-8 h-16 sm:h-20 flex items-center justify-between gap-3 sm:gap-6">
-        {/* BRAND LOGO (CUSTOM UPLOADED OR LUXURY BM) */}
+        {/* BRAND LOGO */}
         <div
           onClick={onLogoClick}
           className="flex items-center gap-2.5 cursor-pointer select-none shrink-0"
@@ -239,7 +269,7 @@ export const Header: React.FC<HeaderProps> = ({
           )}
         </div>
 
-        {/* RIGHT ACTIONS: NIGHT MODE, WISHLIST, PROFILE, CART */}
+        {/* RIGHT ACTIONS: NIGHT MODE, WISHLIST, USER / PROFILE, CART */}
         <div className="flex items-center gap-2 sm:gap-3">
           {/* NIGHT / DAY TOGGLE BUTTON */}
           <button
@@ -270,15 +300,39 @@ export const Header: React.FC<HeaderProps> = ({
             )}
           </button>
 
-          {/* USER / PROFILE / ADMIN LOGIN BUTTON */}
-          <button
-            type="button"
-            onClick={handleAuthClick}
-            className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-white/5 hover:bg-[#C59B27] text-gray-300 hover:text-black flex items-center justify-center transition border border-gray-800 cursor-pointer shadow-sm group"
-            title="Account / Admin Login"
-          >
-            <User className="w-4 h-4 group-hover:scale-110 transition-transform" />
-          </button>
+          {/* USER / PROFILE BUTTON */}
+          {currentUser ? (
+            <button
+              type="button"
+              onClick={handleAuthClick}
+              className="h-9 sm:h-10 px-2.5 sm:px-3 rounded-2xl bg-gradient-to-r from-amber-500/20 to-[#C59B27]/20 border border-[#C59B27]/40 text-amber-300 flex items-center gap-2 hover:border-[#C59B27] transition cursor-pointer shadow-sm"
+              title={`Logged in as ${userName}`}
+            >
+              {userAvatar ? (
+                <img
+                  src={userAvatar}
+                  alt={userName}
+                  className="w-6 h-6 rounded-full object-cover border border-[#C59B27]"
+                />
+              ) : (
+                <div className="w-6 h-6 rounded-full bg-[#C59B27] text-black font-black text-xs flex items-center justify-center">
+                  {userName.charAt(0).toUpperCase()}
+                </div>
+              )}
+              <span className="text-xs font-bold truncate max-w-[80px] sm:max-w-[110px] hidden min-[380px]:inline">
+                {userName.split(' ')[0]}
+              </span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleAuthClick}
+              className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-white/5 hover:bg-[#C59B27] text-gray-300 hover:text-black flex items-center justify-center transition border border-gray-800 cursor-pointer shadow-sm group"
+              title="Account / Login"
+            >
+              <User className="w-4 h-4 group-hover:scale-110 transition-transform" />
+            </button>
+          )}
 
           {/* SHOPPING CART BUTTON */}
           <button
