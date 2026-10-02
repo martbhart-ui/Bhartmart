@@ -7,6 +7,7 @@ interface WishlistModalProps {
   wishlist: any[];
   onRemoveFromWishlist: (id: string) => void;
   onMoveToCart: (product: any) => void;
+  onMoveAllToCart?: (items: any[]) => void;
   isDarkMode?: boolean;
 }
 
@@ -16,9 +17,22 @@ export const WishlistModal: React.FC<WishlistModalProps> = ({
   wishlist,
   onRemoveFromWishlist,
   onMoveToCart,
+  onMoveAllToCart,
   isDarkMode = false,
 }) => {
   if (!isOpen) return null;
+
+  const handleMoveAll = () => {
+    if (wishlist.length === 0) return;
+
+    if (onMoveAllToCart) {
+      onMoveAllToCart(wishlist);
+    } else {
+      // Fallback: Sequentially move each item
+      wishlist.forEach((item) => onMoveToCart(item));
+    }
+    onClose();
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm animate-fadeIn">
@@ -111,10 +125,7 @@ export const WishlistModal: React.FC<WishlistModalProps> = ({
         {wishlist.length > 0 && (
           <div className="pt-4 border-t border-gray-200 dark:border-gray-800">
             <button
-              onClick={() => {
-                wishlist.forEach((item) => onMoveToCart(item));
-                onClose();
-              }}
+              onClick={handleMoveAll}
               className="w-full py-3 bg-[#C59B27] hover:bg-[#b0881e] text-black font-black text-xs uppercase tracking-wider rounded-xl transition cursor-pointer shadow-lg shadow-[#C59B27]/20 flex items-center justify-center gap-2"
             >
               <ShoppingBag className="w-4 h-4" /> Move All to Cart

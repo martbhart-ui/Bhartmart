@@ -329,6 +329,40 @@ export function App() {
       return [...prev, product];
     });
   };
+  const handleMoveAllToCart = (items: any[]) => {
+    if (!items || items.length === 0) return;
+
+    setCart((prev) => {
+      let updatedCart = [...prev];
+
+      items.forEach((product: any) => {
+        const targetSize = product.selectedSize || 'M';
+        const existingIndex = updatedCart.findIndex(
+          (item) => item.id === product.id && item.selectedSize === targetSize
+        );
+
+        if (existingIndex > -1) {
+          updatedCart[existingIndex] = {
+            ...updatedCart[existingIndex],
+            quantity: updatedCart[existingIndex].quantity + 1,
+          };
+        } else {
+          updatedCart.push({
+            ...product,
+            quantity: 1,
+            selectedSize: targetSize,
+          });
+        }
+      });
+
+      return updatedCart;
+    });
+
+    setWishlist([]); // Wishlist khali ho jayegi
+    setIsWishlistOpen(false); // Wishlist popup band ho jayega
+    setIsCartOpen(true); // Direct Cart ka drawer khul jayega
+    playSound('cart');
+  };
 
   const displayedProducts = products.filter((p) => {
     if (activeCategory !== 'All' && activeCategory) {
@@ -510,8 +544,10 @@ export function App() {
         isOpen={isWishlistOpen}
         onClose={() => setIsWishlistOpen(false)}
         wishlist={wishlist}
-        onAddToCart={handleAddToCart}
-        onRemoveWishlist={handleToggleWishlist}
+        onRemoveFromWishlist={handleToggleWishlist}
+        onMoveToCart={handleAddToCart}
+        onMoveAllToCart={handleMoveAllToCart}
+        isDarkMode={isDarkMode}
       />
 
       {/* 1. CUSTOMER AUTH MODAL (PHONE + OTP LOGIN) */}
