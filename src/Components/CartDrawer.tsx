@@ -211,6 +211,23 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 >
                   Proceed to Checkout <ArrowRight className="w-4 h-4" />
                 </button>
+                {/* TRUST & SECURITY BOOSTER */}
+                <div className="pt-2 border-t border-gray-800/80">
+                  <div className="grid grid-cols-3 gap-2 text-center text-[10px] text-gray-400 font-medium">
+                    <div className="flex flex-col items-center gap-1">
+                      <span className="text-emerald-400 text-sm">🔒</span>
+                      <span>100% Safe Payments</span>
+                    </div>
+                    <div className="flex flex-col items-center gap-1 border-x border-gray-800">
+                      <span className="text-amber-400 text-sm">🔄</span>
+                      <span>7-Day Returns</span>
+                    </div>
+                    <div className="flex flex-col items-center gap-1">
+                      <span className="text-blue-400 text-sm">⚡</span>
+                      <span>Express Shipping</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
           </div>
