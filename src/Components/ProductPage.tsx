@@ -262,11 +262,16 @@ export const ProductPage: React.FC<ProductPageProps> = ({
 
           {/* RIGHT: BUY BOX */}
           <div className="lg:col-span-5 space-y-6">
-            <div>
-              <span className="text-xs font-black uppercase tracking-widest text-[#C59B27]">
-                {product.category || 'Curated Drop'}
-              </span>
-              <h1 className="text-2xl sm:text-3xl font-black text-white leading-tight mt-1">
+            <div className="border-b border-gray-800/80 pb-4">
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="px-2.5 py-0.5 rounded-full bg-[#C59B27]/10 text-[#C59B27] text-[10px] font-black uppercase tracking-widest border border-[#C59B27]/20">
+                  {product.category || 'Curated Drop'}
+                </span>
+                <span className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider">
+                  In Stock • Ready to Ship
+                </span>
+              </div>
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-black text-white leading-snug tracking-tight">
                 {product.name}
               </h1>
 
