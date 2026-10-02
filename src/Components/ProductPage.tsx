@@ -382,13 +382,43 @@ export const ProductPage: React.FC<ProductPageProps> = ({
         </div>
 
         {/* 3. PRODUCT SPECIFICATIONS */}
-        <div className="mt-16 bg-[#141A28] border border-gray-800 rounded-3xl p-6 sm:p-8">
-          <h2 className="text-base sm:text-lg font-black text-white uppercase tracking-wider mb-4 border-b border-gray-800 pb-3">
-            Product Details & Description
+        <div className="mt-16 bg-[#141A28] border border-gray-800 rounded-3xl p-6 sm:p-8 space-y-6">
+          <h2 className="text-base sm:text-lg font-black text-[#C59B27] uppercase tracking-wider border-b border-gray-800 pb-3 flex items-center gap-2">
+            Product Details & Specifications
           </h2>
-          <p className="text-sm text-gray-300 leading-relaxed whitespace-pre-line">
-            {product.description || 'Premium quality verified product. Engineered with superior materials for durability, modern aesthetics and ultimate comfort.'}
-          </p>
+
+          <div className="space-y-3">
+            {(product.description || '')
+              .split('\n')
+              .map((line: string) => line.trim())
+              .filter((line: string) => line.length > 0 && !line.toLowerCase().includes('product details & description'))
+              .map((line: string, index: number) => {
+                // Agar line me ":" hai (jaise Color: Jet Black, Fabric: Cotton)
+                if (line.includes(':')) {
+                  const [key, ...val] = line.split(':');
+                  return (
+                    <div key={index} className="flex flex-col sm:flex-row sm:items-center py-2 border-b border-gray-800/60 text-xs sm:text-sm">
+                      <span className="font-bold text-gray-400 sm:w-1/3 tracking-wide">{key.trim()}</span>
+                      <span className="text-white font-medium sm:w-2/3 mt-0.5 sm:mt-0">{val.join(':').trim()}</span>
+                    </div>
+                  );
+                }
+
+                // Normal text ya bullet points
+                return (
+                  <p key={index} className="text-xs sm:text-sm text-gray-300 leading-relaxed flex items-start gap-2">
+                    <span className="text-[#C59B27] mt-1 shrink-0">•</span>
+                    <span>{line.replace(/^[-•*]\s*/, '')}</span>
+                  </p>
+                );
+              })}
+
+            {!product.description && (
+              <p className="text-xs sm:text-sm text-gray-400 leading-relaxed">
+                Premium quality verified product. Engineered with superior materials for durability, modern aesthetics and ultimate comfort.
+              </p>
+            )}
+          </div>
         </div>
 
         {/* 4. CUSTOMER REVIEWS & PHOTOS */}
