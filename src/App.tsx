@@ -136,6 +136,28 @@ export function App() {
   const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
   const [isTrackOrderOpen, setIsTrackOrderOpen] = useState(false);
   const [isSupportOpen, setIsSupportOpen] = useState(false);
+  // Auto-open product when shared link is opened
+  useEffect(() => {
+    if (!products || products.length === 0) return;
+
+    // URL se product id ya param check karna
+    const urlParams = new URLSearchParams(window.location.search);
+    const productIdFromQuery = urlParams.get('product') || urlParams.get('p') || urlParams.get('id');
+    const hash = window.location.hash;
+    const productIdFromHash = hash.startsWith('#product-') ? hash.replace('#product-', '') : null;
+
+    const targetId = productIdFromQuery || productIdFromHash;
+
+    if (targetId) {
+      const foundProduct = products.find(
+        (p: any) => String(p.id) === String(targetId) || String(p.slug) === String(targetId)
+      );
+
+      if (foundProduct) {
+        setSelectedProduct(foundProduct);
+      }
+    }
+  }, [products]);
 
   useEffect(() => {
     localStorage.setItem('bm_cart', JSON.stringify(cart));
