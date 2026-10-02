@@ -319,16 +319,24 @@ export function App() {
     setIsCartOpen(true);
   };
 
-  const handleToggleWishlist = (product: any) => {
+  const handleToggleWishlist = (productOrId: any) => {
     setWishlist((prev) => {
-      const exists = prev.some((p) => p.id === product.id);
+      const targetId = typeof productOrId === 'object' ? productOrId?.id : productOrId;
+      const exists = prev.some((p) => String(p.id) === String(targetId));
+
       if (exists) {
-        return prev.filter((p) => p.id !== product.id);
+        return prev.filter((p) => String(p.id) !== String(targetId));
       }
-      playSound('wishlist');
-      return [...prev, product];
+
+      if (typeof productOrId === 'object' && productOrId?.id) {
+        playSound('wishlist');
+        return [...prev, productOrId];
+      }
+
+      return prev;
     });
   };
+
   const handleMoveAllToCart = (items: any[]) => {
     if (!items || items.length === 0) return;
 
@@ -338,13 +346,13 @@ export function App() {
       items.forEach((product: any) => {
         const targetSize = product.selectedSize || 'M';
         const existingIndex = updatedCart.findIndex(
-          (item) => item.id === product.id && item.selectedSize === targetSize
+          (item) => String(item.id) === String(product.id) && item.selectedSize === targetSize
         );
 
         if (existingIndex > -1) {
           updatedCart[existingIndex] = {
             ...updatedCart[existingIndex],
-            quantity: updatedCart[existingIndex].quantity + 1,
+            quantity: (updatedCart[existingIndex].quantity || 1) + 1,
           };
         } else {
           updatedCart.push({
@@ -358,9 +366,8 @@ export function App() {
       return updatedCart;
     });
 
-    setWishlist([]); // Wishlist khali ho jayegi
-    setIsWishlistOpen(false); // Wishlist popup band ho jayega
-    setIsCartOpen(true); // Direct Cart ka drawer khul jayega
+    setIsWishlistOpen(false);
+    setIsCartOpen(true);
     playSound('cart');
   };
 
