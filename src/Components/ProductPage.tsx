@@ -530,47 +530,81 @@ export const ProductPage: React.FC<ProductPageProps> = ({
                 No reviews yet. Be the first to review this product!
               </p>
             ) : (
-              reviews.map((rev) => (
-                <div key={rev.id} className="p-5 bg-[#111622] border border-gray-800 rounded-2xl space-y-3">
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-full bg-[#C59B27]/20 text-[#C59B27] font-black text-xs flex items-center justify-center border border-[#C59B27]/30">
-                        {rev.customer_name?.[0]?.toUpperCase() || 'U'}
-                      </div>
-                      <div>
-                        <h4 className="text-xs font-bold text-white">{rev.customer_name}</h4>
-                        <span className="text-[10px] text-emerald-400 font-semibold">✓ Verified Purchase</span>
-                      </div>
-                    </div>
-                    <span className="text-[10px] text-gray-500">
-                      {new Date(rev.created_at || Date.now()).toLocaleDateString()}
-                    </span>
-                  </div>
+              reviews.map((rev) => {
+  // Name fallback (customer_name / user_name / reviewer_name)
+  const displayName =
+    rev.customer_name ||
+    rev.user_name ||
+    rev.reviewer_name ||
+    'Verified Buyer';
 
-                  <div className="flex text-amber-400">
-                    {[1, 2, 3, 4, 5].map((s) => (
-                      <Star
-                        key={s}
-                        className={`w-3.5 h-3.5 ${s <= Number(rev.rating) ? 'fill-amber-400' : 'text-gray-700'}`}
-                      />
-                    ))}
-                  </div>
+  // Photo fallback (image_url / review_images array / photo_url)
+  const reviewPhoto =
+    rev.image_url ||
+    (Array.isArray(rev.review_images) && rev.review_images.length > 0
+      ? rev.review_images[0]
+      : null) ||
+    rev.photo_url ||
+    rev.photo;
 
-                  <p className="text-xs text-gray-300 leading-relaxed">{rev.comment}</p>
+  return (
+    <div
+      key={rev.id || Math.random()}
+      className="p-5 bg-[#111622] border border-gray-800 rounded-2xl space-y-3 shadow-sm"
+    >
+      <div className="flex justify-between items-center">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-full bg-[#C59B27]/20 text-[#C59B27] font-black text-xs flex items-center justify-center border border-[#C59B27]/30">
+            {displayName.charAt(0).toUpperCase()}
+          </div>
+          <div>
+            <h4 className="text-xs font-bold text-white">{displayName}</h4>
+            <span className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
+              ✓ Verified Purchase
+            </span>
+          </div>
+        </div>
+        <span className="text-[10px] text-gray-500">
+          {new Date(rev.created_at || Date.now()).toLocaleDateString()}
+        </span>
+      </div>
 
-                  {rev.image_url && (
-                    <div className="pt-2">
-                      <img
-                        src={rev.image_url}
-                        alt="Customer upload"
-                        className="w-24 h-24 sm:w-32 sm:h-32 object-cover rounded-xl border border-gray-700 shadow-md cursor-pointer hover:scale-105 transition"
-                        onClick={() => window.open(rev.image_url, '_blank')}
-                      />
-                      <span className="text-[10px] text-gray-400 mt-1 block">Click photo to view full resolution</span>
-                    </div>
-                  )}
-                </div>
-              ))
+      <div className="flex text-amber-400">
+        {[1, 2, 3, 4, 5].map((s) => (
+          <Star
+            key={s}
+            className={`w-3.5 h-3.5 ${
+              s <= Number(rev.rating || 5)
+                ? 'fill-amber-400'
+                : 'text-gray-700'
+            }`}
+          />
+        ))}
+      </div>
+
+      <p className="text-xs text-gray-300 leading-relaxed whitespace-pre-line">
+        {rev.comment}
+      </p>
+
+      {/* Customer Review Image Render */}
+      {reviewPhoto && (
+        <div className="pt-2">
+          <div className="relative inline-block group">
+            <img
+              src={reviewPhoto}
+              alt="Customer review photo"
+              className="w-24 h-24 sm:w-32 sm:h-32 object-cover rounded-xl border border-gray-700 shadow-md cursor-pointer group-hover:border-[#C59B27] group-hover:scale-105 transition-all duration-300"
+              onClick={() => window.open(reviewPhoto, '_blank')}
+            />
+          </div>
+          <span className="text-[10px] text-gray-500 mt-1.5 block">
+            Click photo to view full image
+          </span>
+        </div>
+      )}
+    </div>
+  );
+})
             )}
           </div>
         </div>
