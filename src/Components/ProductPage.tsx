@@ -429,7 +429,14 @@ export const ProductPage: React.FC<ProductPageProps> = ({
               <div className="flex items-center gap-3 mt-1.5">
                 <div className="flex text-amber-400">
                   {[1, 2, 3, 4, 5].map((s) => (
-                    <Star key={s} className="w-4 h-4 fill-amber-400" />
+                    <Star
+  key={s}
+  className={`w-4 h-4 ${
+    s <= Math.round(Number(avgRating || 5))
+      ? 'fill-amber-400 text-amber-400'
+      : 'text-gray-700'
+  }`}
+/>
                   ))}
                 </div>
                 <span className="text-sm font-black text-white">{avgRating} out of 5</span>
