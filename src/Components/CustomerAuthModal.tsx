@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { User, Phone, X, AlertCircle, Sparkles, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { X, Sparkles, AlertCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface CustomerAuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onLoginSuccess: (user: any) => void;
+  onLoginSuccess?: (user: any) => void;
 }
 
 export const CustomerAuthModal: React.FC<CustomerAuthModalProps> = ({
@@ -13,68 +13,35 @@ export const CustomerAuthModal: React.FC<CustomerAuthModalProps> = ({
   onClose,
   onLoginSuccess,
 }) => {
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [successMsg, setSuccessMsg] = useState('');
 
   if (!isOpen) return null;
 
-  const handleDirectAccess = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-
-    const cleanPhone = phone.replace(/\D/g, '').slice(-10);
-    if (cleanPhone.length !== 10) {
-      setError('Kripya 10-digit valid mobile number dalein.');
-      return;
-    }
-
-    const customerName = name.trim() || `Customer ${cleanPhone.slice(-4)}`;
-    const customerObj = {
-      id: 'cust_' + cleanPhone,
-      phone: cleanPhone,
-      name: customerName,
-      last_login: new Date().toISOString(),
-    };
-
-    setLoading(true);
-
+  const handleGoogleLogin = async () => {
     try {
-      // 1. Database me customer check ya update karein
-      try {
-        const { data: existingUser } = await supabase
-          .from('customers')
-          .select('*')
-          .eq('phone', cleanPhone)
-          .maybeSingle();
+      setLoading(true);
+      setError('');
 
-        if (existingUser) {
-          customerObj.name = existingUser.name || customerName;
-          await supabase
-            .from('customers')
-            .update({ last_login: customerObj.last_login })
-            .eq('phone', cleanPhone);
-        } else {
-          await supabase.from('customers').insert([customerObj]);
-        }
-      } catch (dbErr) {
-        console.warn('Database note:', dbErr);
+      const { data, error: authError } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'select_account',
+          },
+        },
+      });
+
+      if (authError) throw authError;
+
+      if (data && onLoginSuccess) {
+        onLoginSuccess(data);
       }
-
-      // 2. Local Storage me save karein
-      localStorage.setItem('bharatmart_customer', JSON.stringify(customerObj));
-
-      setSuccessMsg(`Welcome, ${customerObj.name}!`);
-
-      setTimeout(() => {
-        onLoginSuccess(customerObj);
-        setSuccessMsg('');
-        onClose();
-      }, 500);
-    } catch {
-      setError('Login karne me samasya aayi. Dobara try karein.');
+    } catch (err: any) {
+      console.error('Google Sign-In Error:', err);
+      setError(err?.message || 'Google login failed. Kripya punha prayatna kara.');
     } finally {
       setLoading(false);
     }
@@ -82,13 +49,13 @@ export const CustomerAuthModal: React.FC<CustomerAuthModalProps> = ({
 
   const handleClose = () => {
     setError('');
-    setSuccessMsg('');
     onClose();
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="relative w-full max-w-sm bg-white rounded-3xl p-6 sm:p-7 shadow-2xl border border-gray-100 animate-in fade-in zoom-in-95 duration-200">
+      <div className="relative w-full max-w-sm bg-white rounded-3xl p-6 sm:p-7 shadow-2xl border border-gray-100 animate-in fade-in zoom-in-95 duration-200 text-center">
+        {/* Close Button */}
         <button
           onClick={handleClose}
           className="absolute top-4 right-4 p-2 text-gray-400 hover:text-black rounded-xl hover:bg-gray-100 transition cursor-pointer"
@@ -96,73 +63,56 @@ export const CustomerAuthModal: React.FC<CustomerAuthModalProps> = ({
           <X className="w-5 h-5" />
         </button>
 
-        <div className="text-center mb-5">
-          <div className="w-12 h-12 rounded-2xl bg-amber-50 text-[#C59B27] flex items-center justify-center mx-auto mb-2 border border-amber-200 shadow-sm">
+        {/* Modal Header */}
+        <div className="mb-6">
+          <div className="w-12 h-12 rounded-2xl bg-amber-50 text-[#C59B27] flex items-center justify-center mx-auto mb-2.5 border border-amber-200 shadow-sm">
             <Sparkles className="w-6 h-6" />
           </div>
-          <h3 className="text-lg font-black text-gray-900">Access Your Account</h3>
-          <p className="text-xs text-gray-500 mt-0.5">
-            Enter your details for instant access to orders & wishlist
+          <h3 className="text-xl font-black text-gray-900 tracking-tight">Access Your Account</h3>
+          <p className="text-xs text-gray-500 mt-1 max-w-[250px] mx-auto leading-relaxed">
+            Sign in with Google for instant access to your orders, bag & wishlist.
           </p>
         </div>
 
+        {/* Error Alert Box */}
         {error && (
-          <div className="mb-4 p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-center gap-2 text-rose-600 text-xs font-semibold">
+          <div className="mb-4 p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-center gap-2 text-rose-600 text-xs font-semibold text-left">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span>{error}</span>
           </div>
         )}
 
-        {successMsg && (
-          <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2 text-emerald-700 text-xs font-semibold">
-            <CheckCircle2 className="w-4 h-4 shrink-0" />
-            <span>{successMsg}</span>
-          </div>
-        )}
+        {/* Google Sign In Button */}
+        <button
+          type="button"
+          onClick={handleGoogleLogin}
+          disabled={loading}
+          className="w-full py-3.5 px-4 bg-white hover:bg-gray-50 text-gray-800 font-bold text-xs uppercase tracking-wider rounded-2xl border border-gray-200 shadow-sm hover:shadow transition flex items-center justify-center gap-3 cursor-pointer disabled:opacity-60"
+        >
+          <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
+            <path
+              fill="#4285F4"
+              d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"
+            />
+            <path
+              fill="#34A853"
+              d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.34 24 12 24z"
+            />
+            <path
+              fill="#FBBC05"
+              d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.98 0 12s.45 3.82 1.25 5.42l4.03-3.15z"
+            />
+            <path
+              fill="#EA4335"
+              d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
+            />
+          </svg>
+          <span>{loading ? 'Connecting to Google...' : 'Continue with Google'}</span>
+        </button>
 
-        <form onSubmit={handleDirectAccess} className="space-y-3.5">
-          <div>
-            <label className="text-[11px] font-bold text-gray-700 block mb-1">
-              Your Name <span className="text-gray-400 font-normal">(Optional)</span>
-            </label>
-            <div className="relative">
-              <User className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
-              <input
-                type="text"
-                placeholder="e.g. Mayank Rawat"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full text-xs pl-9 pr-3 py-2.5 rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:border-[#C59B27] font-medium text-gray-900"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="text-[11px] font-bold text-gray-700 block mb-1">Mobile Number</label>
-            <div className="relative flex items-center">
-              <Phone className="w-4 h-4 text-gray-400 absolute left-3" />
-              <span className="absolute left-8 text-xs font-bold text-gray-500">+91</span>
-              <input
-                type="tel"
-                required
-                placeholder="10-digit number"
-                maxLength={10}
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="w-full text-xs pl-16 pr-3 py-2.5 rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:border-[#C59B27] font-medium text-gray-900"
-              />
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full mt-2 py-3 bg-[#C59B27] hover:bg-[#B0881E] disabled:opacity-50 text-white rounded-xl text-xs font-black transition cursor-pointer shadow-md shadow-[#C59B27]/25 flex items-center justify-center gap-1.5"
-          >
-            {loading ? 'Accessing Account...' : 'Open Your Account'}
-            <ArrowRight className="w-4 h-4" />
-          </button>
-        </form>
+        <p className="text-[10px] text-gray-400 mt-4">
+          Safe, instant & 1-click verified login
+        </p>
       </div>
     </div>
   );
