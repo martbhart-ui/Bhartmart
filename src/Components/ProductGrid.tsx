@@ -94,7 +94,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
             className="group bg-[#141A28] border border-gray-800 hover:border-[#C59B27]/60 rounded-3xl overflow-hidden flex flex-col justify-between transition-all duration-300 hover:shadow-xl hover:shadow-[#C59B27]/10 cursor-pointer relative"
           >
             {/* MEDIA THUMBNAIL */}
-            <div className="relative aspect-square overflow-hidden bg-black/40">
+            <div className="relative aspect-square overflow-hidden bg-gray-900 animate-pulse">
               {isVideo(product.image_url) ? (
                 <video
                   src={product.image_url}
@@ -112,6 +112,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   loading="lazy"
                   decoding="async"
+                  onLoad={(e) => (e.currentTarget.parentElement?.classList.remove('animate-pulse'))}
                 />
               )}
 
