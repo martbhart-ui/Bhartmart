@@ -7,9 +7,7 @@ import {
   ShoppingBag,
   ArrowRight,
   CheckCircle2,
-  QrCode,
-  Copy,
-  Check,
+  CreditCard,
   Truck,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -23,6 +21,12 @@ interface CartDrawerProps {
   onCheckoutSuccess?: () => void;
 }
 
+declare global {
+  interface Window {
+    Razorpay: any;
+  }
+}
+
 export const CartDrawer: React.FC<CartDrawerProps> = ({
   isOpen,
   onClose,
@@ -34,20 +38,16 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
   // Admin Security Settings for Payment
   const codEnabled = theme.securitySettings?.codEnabled ?? true;
-  const upiId = theme.securitySettings?.upiId || 'vedantgadewar291-1@okicici';
-  const customQrUrl = theme.securitySettings?.qrCodeUrl || '';
 
   // Checkout Steps: 'cart' | 'shipping' | 'success'
   const [step, setStep] = useState<'cart' | 'shipping' | 'success'>('cart');
-  const [paymentMethod, setPaymentMethod] = useState<'cod' | 'online'>(codEnabled ? 'cod' : 'online');
-  const [copiedUpi, setCopiedUpi] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<'cod' | 'razorpay'>('razorpay');
 
   // Customer Shipping Details
   const [customerName, setCustomerName] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [pincode, setPincode] = useState('');
-  const [utrNumber, setUtrNumber] = useState('');
   const [submittingOrder, setSubmittingOrder] = useState(false);
   const [placedOrderId, setPlacedOrderId] = useState('');
 
@@ -73,10 +73,90 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     setCart((prev) => prev.filter((item) => !(item.id === id && item.selectedSize === size)));
   };
 
-  const handleCopyUpi = () => {
-    navigator.clipboard.writeText(upiId);
-    setCopiedUpi(true);
-    setTimeout(() => setCopiedUpi(false), 2000);
+  // Common function to save order in Supabase
+  const saveOrderToDatabase = async (paymentId: string | null, method: string) => {
+    const orderPayload = {
+      customer_name: customerName.trim(),
+      phone: phone.trim(),
+      address: address.trim(),
+      pincode: pincode.trim(),
+      total_amount: totalAmount,
+      status: method === 'Cash on Delivery (COD)' ? 'Pending' : 'Paid',
+      payment_method: method,
+      transaction_id: paymentId,
+      items: cart.map((c) => ({
+        id: c.id,
+        name: c.name,
+        price: c.price,
+        quantity: c.quantity,
+        selectedSize: c.selectedSize || 'M',
+      })),
+      created_at: new Date().toISOString(),
+    };
+
+    const { data, error } = await supabase.from('orders').insert([orderPayload]).select();
+    if (error) throw error;
+
+    const generatedId = data && data[0] ? data[0].id : String(Date.now());
+    setPlacedOrderId(generatedId);
+    setCart([]);
+    setStep('success');
+    if (onCheckoutSuccess) onCheckoutSuccess();
+  };
+
+  // Razorpay Checkout Trigger
+  const handleRazorpayPayment = () => {
+    const razorpayKey = import.meta.env.VITE_RAZORPAY_KEY_ID;
+
+    if (!razorpayKey) {
+      alert('Razorpay Key missing! Please check .env.local file');
+      setSubmittingOrder(false);
+      return;
+    }
+
+    if (!window.Razorpay) {
+      alert('Razorpay SDK failed to load. Please refresh the page and try again.');
+      setSubmittingOrder(false);
+      return;
+    }
+
+    const options = {
+      key: razorpayKey,
+      amount: Math.round(totalAmount * 100), // Amount in paise (₹100 = 10000)
+      currency: 'INR',
+      name: 'BHART MART',
+      description: `Purchase of ${cart.length} item(s)`,
+      image: '/vite.svg',
+      prefill: {
+        name: customerName,
+        contact: phone,
+      },
+      theme: {
+        color: '#C59B27',
+      },
+      handler: async function (response: any) {
+        try {
+          // response.razorpay_payment_id mil gaya
+          await saveOrderToDatabase(response.razorpay_payment_id, 'Razorpay (Online)');
+        } catch (err: any) {
+          alert('Failed to save order: ' + err.message);
+        } finally {
+          setSubmittingOrder(false);
+        }
+      },
+      modal: {
+        ondismiss: function () {
+          setSubmittingOrder(false);
+        },
+      },
+    };
+
+    const rzp = new window.Razorpay(options);
+    rzp.on('payment.failed', function (response: any) {
+      alert('Payment failed: ' + response.error.description);
+      setSubmittingOrder(false);
+    });
+    rzp.open();
   };
 
   const handlePlaceOrder = async (e: React.FormEvent) => {
@@ -87,55 +167,34 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     }
 
     setSubmittingOrder(true);
-    try {
-      const orderPayload = {
-        customer_name: customerName.trim(),
-        phone: phone.trim(),
-        address: address.trim(),
-        pincode: pincode.trim(),
-        total_amount: totalAmount,
-        status: 'Pending',
-        payment_method: paymentMethod === 'online' ? 'Online UPI / QR Code' : 'Cash on Delivery (COD)',
-        transaction_id: paymentMethod === 'online' ? utrNumber.trim() || 'Paid via UPI QR' : null,
-        items: cart.map((c) => ({
-          id: c.id,
-          name: c.name,
-          price: c.price,
-          quantity: c.quantity,
-          selectedSize: c.selectedSize || 'M',
-        })),
-        created_at: new Date().toISOString(),
-      };
 
-      const { data, error } = await supabase.from('orders').insert([orderPayload]).select();
-      if (error) throw error;
-
-      const generatedId = data && data[0] ? data[0].id : String(Date.now());
-      setPlacedOrderId(generatedId);
-      setCart([]);
-      setStep('success');
-      if (onCheckoutSuccess) onCheckoutSuccess();
-    } catch (err: any) {
-      alert('Order failed: ' + err.message);
-    } finally {
-      setSubmittingOrder(false);
+    if (paymentMethod === 'razorpay') {
+      handleRazorpayPayment();
+    } else {
+      // Cash on delivery
+      try {
+        await saveOrderToDatabase(null, 'Cash on Delivery (COD)');
+      } catch (err: any) {
+        alert('Order failed: ' + err.message);
+      } finally {
+        setSubmittingOrder(false);
+      }
     }
   };
-
-  // Dynamic UPI payment link for QR Code
-  const upiDeepLink = `upi://pay?pa=${upiId}&pn=BHART%20MART&am=${totalAmount}&cu=INR`;
-  const dynamicQrCode = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(upiDeepLink)}`;
 
   return (
     <div className="fixed inset-0 z-[10000] flex justify-end bg-black/80 backdrop-blur-sm animate-fadeIn">
       <div className="w-full max-w-md bg-[#0B0F17] text-gray-100 h-full flex flex-col border-l border-gray-800 shadow-2xl">
-        
         {/* HEADER */}
         <div className="h-16 px-6 border-b border-gray-800 flex items-center justify-between bg-[#141A28]">
           <div className="flex items-center gap-2.5">
             <ShoppingBag className="w-5 h-5 text-[#C59B27]" />
             <h2 className="text-sm font-black text-white uppercase tracking-wider">
-              {step === 'cart' ? `Your Shopping Cart (${cart.length})` : step === 'shipping' ? 'Secure Checkout' : 'Order Confirmed'}
+              {step === 'cart'
+                ? `Your Shopping Cart (${cart.length})`
+                : step === 'shipping'
+                ? 'Secure Checkout'
+                : 'Order Confirmed'}
             </h2>
           </div>
           <button
@@ -216,7 +275,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   <div className="grid grid-cols-3 gap-2 text-center text-[10px] text-gray-400 font-medium">
                     <div className="flex flex-col items-center gap-1">
                       <span className="text-emerald-400 text-sm">🔒</span>
-                      <span>100% Safe Payments</span>
+                      <span>Razorpay Verified</span>
                     </div>
                     <div className="flex flex-col items-center gap-1 border-x border-gray-800">
                       <span className="text-amber-400 text-sm">🔄</span>
@@ -277,14 +336,44 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 </div>
               </div>
 
-              {/* PAYMENT METHOD SELECTION (MEESHO / AMAZON STYLE) */}
+              {/* PAYMENT METHOD SELECTION */}
               <div>
                 <span className="text-xs font-black uppercase text-gray-400 tracking-wider block mb-3">
                   2. Select Payment Method
                 </span>
 
                 <div className="space-y-3">
-                  {/* OPTION A: CASH ON DELIVERY */}
+                  {/* OPTION A: RAZORPAY ONLINE */}
+                  <label
+                    onClick={() => setPaymentMethod('razorpay')}
+                    className={`p-4 rounded-2xl border cursor-pointer flex items-center justify-between transition ${
+                      paymentMethod === 'razorpay'
+                        ? 'bg-[#C59B27]/10 border-[#C59B27] text-white shadow-md'
+                        : 'bg-[#141A28] border-gray-800 text-gray-400'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <CreditCard className="w-5 h-5 text-amber-400" />
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-xs font-bold text-white">Razorpay Secure Online</h4>
+                          <span className="text-[9px] bg-emerald-500/20 text-emerald-400 font-black px-2 py-0.5 rounded uppercase">
+                            Fast & Auto-Verified
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-gray-400">UPI (GPay/PhonePe), Cards, NetBanking</span>
+                      </div>
+                    </div>
+                    <input
+                      type="radio"
+                      name="payment"
+                      checked={paymentMethod === 'razorpay'}
+                      onChange={() => setPaymentMethod('razorpay')}
+                      className="accent-[#C59B27] w-4 h-4 cursor-pointer"
+                    />
+                  </label>
+
+                  {/* OPTION B: CASH ON DELIVERY */}
                   {codEnabled && (
                     <label
                       onClick={() => setPaymentMethod('cod')}
@@ -310,87 +399,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                       />
                     </label>
                   )}
-
-                  {/* OPTION B: PAY ONLINE (UPI & QR SCANNER) */}
-                  <label
-                    onClick={() => setPaymentMethod('online')}
-                    className={`p-4 rounded-2xl border cursor-pointer flex items-center justify-between transition ${
-                      paymentMethod === 'online'
-                        ? 'bg-[#C59B27]/10 border-[#C59B27] text-white shadow-md'
-                        : 'bg-[#141A28] border-gray-800 text-gray-400'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <QrCode className="w-5 h-5 text-amber-400" />
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h4 className="text-xs font-bold text-white">Pay Online (UPI / QR Code)</h4>
-                          <span className="text-[9px] bg-emerald-500/20 text-emerald-400 font-black px-2 py-0.5 rounded uppercase">
-                            Instant Verification
-                          </span>
-                        </div>
-                        <span className="text-[10px] text-gray-400">Scan QR code using GPay, PhonePe, Paytm, or BHIM</span>
-                      </div>
-                    </div>
-                    <input
-                      type="radio"
-                      name="payment"
-                      checked={paymentMethod === 'online'}
-                      onChange={() => setPaymentMethod('online')}
-                      className="accent-[#C59B27] w-4 h-4 cursor-pointer"
-                    />
-                  </label>
                 </div>
-
-                {/* ONLINE QR CODE VIEWER BOX */}
-                {paymentMethod === 'online' && (
-                  <div className="mt-4 p-5 bg-[#141A28] border border-amber-500/30 rounded-3xl space-y-4 animate-fadeIn">
-                    <div className="text-center">
-                      <span className="text-[11px] font-black uppercase text-amber-400">
-                        Scan & Pay ₹{totalAmount}
-                      </span>
-                      <p className="text-[10px] text-gray-400 mt-0.5">Use any UPI app to scan and complete payment</p>
-                    </div>
-
-                    <div className="flex justify-center">
-                      <div className="p-3 bg-white rounded-2xl shadow-xl border border-gray-200">
-                        <img
-                          src={customQrUrl || dynamicQrCode}
-                          alt="Payment QR"
-                          className="w-48 h-48 object-contain"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="p-3 bg-[#0B0F17] rounded-xl border border-gray-800 flex items-center justify-between">
-                      <div>
-                        <span className="text-[10px] text-gray-500 block uppercase font-bold">Store UPI VPA:</span>
-                        <span className="text-xs font-mono font-bold text-white">{upiId}</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleCopyUpi}
-                        className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-amber-400 text-xs font-bold flex items-center gap-1 cursor-pointer border border-gray-700"
-                      >
-                        {copiedUpi ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                        {copiedUpi ? 'Copied' : 'Copy'}
-                      </button>
-                    </div>
-
-                    <div>
-                      <label className="text-[11px] font-bold text-gray-400 block mb-1">
-                        Transaction Ref / UTR No. (Optional)
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="e.g. 32849204928"
-                        value={utrNumber}
-                        onChange={(e) => setUtrNumber(e.target.value)}
-                        className="w-full text-xs p-2.5 rounded-xl bg-[#0B0F17] border border-gray-700 text-white font-mono outline-none"
-                      />
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
 
@@ -413,10 +422,10 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   className="flex-1 py-4 bg-gradient-to-r from-amber-500 to-[#C59B27] hover:brightness-110 text-black font-black text-xs uppercase tracking-wider rounded-2xl shadow-xl shadow-[#C59B27]/20 cursor-pointer"
                 >
                   {submittingOrder
-                    ? 'Confirming Order...'
-                    : paymentMethod === 'online'
-                    ? 'Confirm Online Payment & Place Order'
-                    : 'Confirm Order (Cash on Delivery)'}
+                    ? 'Processing...'
+                    : paymentMethod === 'razorpay'
+                    ? `Pay ₹${totalAmount} via Razorpay`
+                    : 'Confirm Order (COD)'}
                 </button>
               </div>
             </div>
