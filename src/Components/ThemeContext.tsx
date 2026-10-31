@@ -181,22 +181,32 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const applyThemeToDOM = (t: ThemeConfig) => {
     const root = document.documentElement;
-    const body = document.body;
 
-    if (t.colors.primary) root.style.setProperty('--bm-primary', t.colors.primary);
-    if (t.colors.secondary) root.style.setProperty('--bm-secondary', t.colors.secondary);
+    if (t.colors?.primary) root.style.setProperty('--bm-primary', t.colors.primary);
+    if (t.colors?.secondary) root.style.setProperty('--bm-secondary', t.colors.secondary);
 
-    // Apply Background Wallpaper / Festival Image only if present
+    // Dynamic style tag taaki solid Tailwind backgrounds wallpaper ko hide na karein
+    let dynamicStyle = document.getElementById('bm-dynamic-theme-style');
+    if (!dynamicStyle) {
+      dynamicStyle = document.createElement('style');
+      dynamicStyle.id = 'bm-dynamic-theme-style';
+      document.head.appendChild(dynamicStyle);
+    }
+
     if (t.backgroundImage && t.backgroundImage.trim() !== '') {
-      body.style.backgroundImage = `url("${t.backgroundImage}")`;
-      body.style.backgroundSize = 'cover';
-      body.style.backgroundPosition = 'center';
-      body.style.backgroundAttachment = 'fixed';
-      body.style.backgroundRepeat = 'no-repeat';
-      body.style.backgroundColor = '';
+      dynamicStyle.innerHTML = `
+        body, #root, main, .min-h-screen {
+          background-image: url("${t.backgroundImage}") !important;
+          background-size: cover !important;
+          background-position: center !important;
+          background-attachment: fixed !important;
+          background-repeat: no-repeat !important;
+          background-color: transparent !important;
+        }
+      `;
     } else {
-      body.style.backgroundImage = 'none';
-      body.style.backgroundColor = ''; // Light/Dark mode classes handle background
+      dynamicStyle.innerHTML = '';
+      document.body.style.backgroundImage = 'none';
     }
 
     if (t.logoSettings?.faviconUrl) {
@@ -265,10 +275,8 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const saveThemeToDb = async (themeToSave: ThemeConfig) => {
     try {
-      // 1. Instant local cache update
       localStorage.setItem('bm_theme_config', JSON.stringify(themeToSave));
 
-      // 2. Direct upsert attempt
       const { error: upsertError } = await supabase
         .from('store_settings')
         .upsert(
@@ -284,7 +292,6 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       console.warn('Upsert failed, trying direct update/insert fallback:', upsertError);
 
-      // 3. Fallback: Check existing row
       const { data: existing } = await supabase
         .from('store_settings')
         .select('id')

@@ -62,16 +62,20 @@ export function App() {
       root.classList.add('dark');
       document.body.classList.add('dark');
       root.style.colorScheme = 'dark';
-      document.body.style.backgroundColor = '#0B0F17';
+      if (!theme?.backgroundImage) {
+        document.body.style.backgroundColor = '#0B0F17';
+      }
       document.body.style.color = '#F3F4F6';
     } else {
       root.classList.remove('dark');
       document.body.classList.remove('dark');
       root.style.colorScheme = 'light';
-      document.body.style.backgroundColor = '#F8F9FA';
+      if (!theme?.backgroundImage) {
+        document.body.style.backgroundColor = '#F8F9FA';
+      }
       document.body.style.color = '#111827';
     }
-  }, [isDarkMode]);
+  }, [isDarkMode, theme?.backgroundImage]);
 
   const handleToggleDarkMode = () => {
     if (themeCtx?.toggleDarkMode) themeCtx.toggleDarkMode();
@@ -131,16 +135,16 @@ export function App() {
   // Modals Visibility States
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isWishlistOpen, setIsWishlistOpen] = useState(false);
-  const [isCustomerAuthOpen, setIsCustomerAuthOpen] = useState(false); // Customer Phone/OTP Modal
+  const [isCustomerAuthOpen, setIsCustomerAuthOpen] = useState(false);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
   const [isTrackOrderOpen, setIsTrackOrderOpen] = useState(false);
   const [isSupportOpen, setIsSupportOpen] = useState(false);
+
   // Auto-open product when shared link is opened
   useEffect(() => {
     if (!products || products.length === 0) return;
 
-    // URL se product id ya param check karna
     const urlParams = new URLSearchParams(window.location.search);
     const productIdFromQuery = urlParams.get('product') || urlParams.get('p') || urlParams.get('id');
     const hash = window.location.hash;
@@ -393,30 +397,61 @@ export function App() {
     playSound('cart');
   };
 
+  // =========================================================================
+  // 5. UNIVERSAL MULTI-CATEGORY SEARCH ENGINE
+  // =========================================================================
   const displayedProducts = products.filter((p) => {
+    if (searchQuery && searchQuery.trim()) {
+      const cleanQuery = searchQuery.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').trim();
+      const tokens = cleanQuery.split(/\s+/).filter(Boolean);
+
+      const searchableText = [
+        p.name || '',
+        p.category || '',
+        p.description || '',
+        p.tags ? (Array.isArray(p.tags) ? p.tags.join(' ') : p.tags) : '',
+        p.brand || '',
+      ]
+        .join(' ')
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, ' ');
+
+      const allTokensMatch = tokens.every((tok) => searchableText.includes(tok));
+      const looseMatch = tokens.some((tok) => {
+        const root = tok.endsWith('s') ? tok.slice(0, -1) : tok;
+        return root.length > 2 && searchableText.includes(root);
+      });
+
+      return allTokensMatch || looseMatch;
+    }
+
     if (activeCategory !== 'All' && activeCategory) {
       const pCat = (p.category || '').toLowerCase();
       const aCat = activeCategory.toLowerCase();
-      const match = pCat === aCat || pCat.includes(aCat) || aCat.includes(pCat);
-      if (!match) return false;
+      return pCat === aCat || pCat.includes(aCat) || aCat.includes(pCat);
     }
-    const matchesSearch =
-      !searchQuery ||
-      p.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.category?.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesSearch;
+
+    return true;
   });
+
+  const hasBgImage = Boolean(theme?.backgroundImage && theme.backgroundImage.trim() !== '');
 
   return (
     <div
-      className="min-h-screen flex flex-col font-sans transition-colors duration-300"
+      className={`min-h-screen flex flex-col font-sans transition-colors duration-300 ${
+        hasBgImage ? 'bg-[#0B0F17]/75 backdrop-blur-[2px]' : ''
+      }`}
       style={{
-        backgroundColor: isDarkMode ? '#0B0F17' : (theme?.colors?.background || '#F8F9FA'),
+        backgroundColor: hasBgImage
+          ? 'transparent'
+          : isDarkMode
+          ? '#0B0F17'
+          : (theme?.colors?.background || '#F8F9FA'),
         color: isDarkMode ? '#F3F4F6' : (theme?.colors?.textPrimary || '#111827'),
         fontFamily: theme?.typography?.bodyFont || 'Inter',
       }}
     >
-      {/* GLOBAL HEADER (Profile icon connected to CUSTOMER AUTH MODAL) */}
+      {/* GLOBAL HEADER */}
       <HeaderComp
         cartCount={cart.reduce((sum, item) => sum + item.quantity, 0)}
         wishlistCount={wishlist.length}
@@ -489,16 +524,23 @@ export function App() {
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h2 className="text-xl sm:text-2xl font-black">
-                  {activeCategory === 'All' ? 'All Curated Drops' : `${activeCategory} Collection`}
+                  {searchQuery
+                    ? `Search Results for "${searchQuery}"`
+                    : activeCategory === 'All'
+                    ? 'All Curated Drops'
+                    : `${activeCategory} Collection`}
                 </h2>
                 <p className="text-xs opacity-70 mt-1">
                   Showing {displayedProducts.length} verified premium items
                 </p>
               </div>
 
-              {activeCategory !== 'All' && (
+              {(activeCategory !== 'All' || searchQuery) && (
                 <button
-                  onClick={() => handleSelectCategory('All')}
+                  onClick={() => {
+                    setActiveCategory('All');
+                    setSearchQuery('');
+                  }}
                   className="text-xs font-bold text-[#C59B27] hover:underline cursor-pointer"
                 >
                   View All Products
@@ -515,7 +557,10 @@ export function App() {
               wishlist={wishlist}
               selectedCategory={activeCategory === 'All' ? null : activeCategory}
               searchTerm={searchQuery}
-              onResetFilters={() => handleSelectCategory('All')}
+              onResetFilters={() => {
+                setActiveCategory('All');
+                setSearchQuery('');
+              }}
               onOpenCart={() => setIsCartOpen(true)}
             />
           </section>
@@ -524,7 +569,7 @@ export function App() {
         </main>
       )}
 
-      {/* FOOTER (ONLY PLACE FOR ADMIN PANEL ACCESS VIA SECRET LOGO) */}
+      {/* FOOTER */}
       {theme.sections.showFooter && (
         <FooterComp
           onOpenTrackOrder={() => setIsTrackOrderOpen(true)}
@@ -579,7 +624,7 @@ export function App() {
         isDarkMode={isDarkMode}
       />
 
-      {/* 1. CUSTOMER AUTH MODAL (PHONE + OTP LOGIN) */}
+      {/* CUSTOMER AUTH MODAL */}
       <CustomerAuthModalComp
         isOpen={isCustomerAuthOpen}
         onClose={() => setIsCustomerAuthOpen(false)}
@@ -599,7 +644,7 @@ export function App() {
         onClose={() => setIsSupportOpen(false)}
       />
 
-      {/* 2. ADMIN LOGIN MODAL */}
+      {/* ADMIN LOGIN MODAL */}
       <AdminLoginModalComp
         isOpen={isAdminLoginOpen}
         onClose={() => setIsAdminLoginOpen(false)}
@@ -609,7 +654,7 @@ export function App() {
         }}
       />
 
-      {/* 3. ADMIN PANEL MODAL */}
+      {/* ADMIN PANEL MODAL */}
       <AdminPanelComp
         isOpen={isAdminOpen}
         onClose={handleCloseAdmin}
