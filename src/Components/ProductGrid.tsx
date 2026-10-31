@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Heart, Share2, ShoppingBag, Star, Check, } from 'lucide-react';
+import { Heart, Share2, ShoppingBag, Star, Check } from 'lucide-react';
 
 interface ProductGridProps {
   products: any[];
@@ -13,6 +13,15 @@ interface ProductGridProps {
   onResetFilters?: () => void;
   onOpenCart?: () => void;
 }
+
+// ⚡ On-the-fly Supabase Image Optimizer
+const getOptimizedUrl = (url: string, width = 400) => {
+  if (!url) return '';
+  if (url.includes('supabase.co/storage/v1/object/public/')) {
+    return `${url}?width=${width}&quality=75&format=webp`;
+  }
+  return url;
+};
 
 export const ProductGrid: React.FC<ProductGridProps> = ({
   products,
@@ -81,7 +90,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
 
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
-      {products.map((product) => {
+      {products.map((product, index) => {
         const isWishlisted = wishlist.some((item) => item.id === product.id);
         const discount = product.original_price
           ? Math.round(((Number(product.original_price) - Number(product.price)) / Number(product.original_price)) * 100)
@@ -107,10 +116,10 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
                 />
               ) : (
                 <img
-                  src={product.image_url}
+                  src={getOptimizedUrl(product.image_url, 400)}
                   alt={product.name}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                  loading="lazy"
+                  loading={index < 4 ? 'eager' : 'lazy'}
                   decoding="async"
                   onLoad={(e) => (e.currentTarget.parentElement?.classList.remove('animate-pulse'))}
                 />
@@ -149,7 +158,7 @@ export const ProductGrid: React.FC<ProductGridProps> = ({
                   <Heart className={`w-4 h-4 ${isWishlisted ? 'fill-white' : ''}`} />
                 </button>
 
-                {/* 2. DIRECT SHARE BUTTON (Under Heart) */}
+                {/* 2. DIRECT SHARE BUTTON */}
                 <button
                   type="button"
                   onClick={(e) => handleShare(e, product)}
