@@ -33,12 +33,26 @@
       body {
         font-family: 'Plus Jakarta Sans', sans-serif;
       }
+
+      /* Global Background Wallpaper Override */
+      body.has-custom-bg {
+        background-size: cover !important;
+        background-position: center !important;
+        background-attachment: fixed !important;
+        background-repeat: no-repeat !important;
+      }
+      body.has-custom-bg,
+      body.has-custom-bg #root,
+      body.has-custom-bg main,
+      body.has-custom-bg .min-h-screen {
+        background-color: transparent !important;
+      }
     </style>
 
     <!-- Razorpay Checkout Script -->
     <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
   </head>
-  <body class="bg-[#F8F9FA] text-gray-900 antialiased selection:bg-[#C59B27] selection:text-white">
+  <body class="text-gray-900 antialiased selection:bg-[#C59B27] selection:text-white">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

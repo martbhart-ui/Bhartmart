@@ -174,6 +174,11 @@ const GOOGLE_FONTS = [
 export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
   const { theme: liveTheme, updateTheme, saveThemeToDb } = useTheme();
   const [localTheme, setLocalTheme] = useState<ThemeConfig>(liveTheme);
+  useEffect(() => {
+    if (liveTheme) {
+      setLocalTheme(liveTheme);
+    }
+  }, [liveTheme, isOpen]);
   const [isSavingTheme, setIsSavingTheme] = useState(false);
   const [themeSaveSuccess, setThemeSaveSuccess] = useState(false);
 
@@ -966,23 +971,38 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
       const fileName = `wallpaper_${Date.now()}.${fileExt}`;
       const filePath = `store_theme/${fileName}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('public-images')
+      let bucketName = 'public-images';
+      let { error: uploadError } = await supabase.storage
+        .from(bucketName)
         .upload(filePath, file, { upsert: true });
 
       if (uploadError) {
+        bucketName = 'products';
         const { error: fallbackError } = await supabase.storage
-          .from('products')
+          .from(bucketName)
           .upload(filePath, file, { upsert: true });
         if (fallbackError) throw fallbackError;
-
-        const { data: publicData } = supabase.storage.from('products').getPublicUrl(filePath);
-        setLocalTheme((prev: any) => ({ ...prev, backgroundImage: publicData.publicUrl }));
-        return;
       }
 
-      const { data: publicData } = supabase.storage.from('public-images').getPublicUrl(filePath);
-      setLocalTheme((prev: any) => ({ ...prev, backgroundImage: publicData.publicUrl }));
+      const { data: publicData } = supabase.storage
+        .from(bucketName)
+        .getPublicUrl(filePath);
+
+      const finalUrl = publicData.publicUrl;
+
+      // 1. Local state update karo taaki box me dikhe
+      setLocalTheme((prev: any) => ({
+        ...prev,
+        backgroundImage: finalUrl,
+      }));
+
+      // 2. Live Theme Context update karo
+      updateTheme({ backgroundImage: finalUrl });
+
+      // 3. Browser memory me save karo
+      const currentConfig = JSON.parse(localStorage.getItem('bm_theme_config') || '{}');
+      localStorage.setItem('bm_theme_config', JSON.stringify({ ...currentConfig, backgroundImage: finalUrl }));
+
     } catch (err: any) {
       alert('Wallpaper upload failed: ' + err.message);
     }
