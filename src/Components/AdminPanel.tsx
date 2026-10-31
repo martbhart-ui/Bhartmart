@@ -1024,23 +1024,37 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ isOpen, onClose }) => {
     }
   };
   const handleSaveThemeSettings = async () => {
-  setIsSavingTheme(true);
-  try {
-    updateTheme(localTheme);
-    const success = await saveThemeToDb(localTheme);
-    setIsSavingTheme(false);
-    if (success) {
-      setThemeSaveSuccess(true);
-      setTimeout(() => setThemeSaveSuccess(false), 2500);
-      alert('Theme & Background Wallpaper applied successfully!');
-    } else {
-      alert('Failed to save theme settings to database.');
+    setIsSavingTheme(true);
+    try {
+      // 1. UI aur LocalStorage ko turant apply karo
+      updateTheme(localTheme);
+      localStorage.setItem('bm_theme_config', JSON.stringify(localTheme));
+
+      // 2. Direct Supabase me save karo
+      const { error } = await supabase.from('store_settings').upsert(
+        {
+          id: 'theme_config',
+          theme_data: localTheme,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'id' }
+      );
+
+      setIsSavingTheme(false);
+
+      if (error) {
+        // Agar Supabase me koi error aayega toh exact reason yahan dikhega
+        alert(`Supabase Error: ${error.message} (Code: ${error.code})`);
+      } else {
+        setThemeSaveSuccess(true);
+        setTimeout(() => setThemeSaveSuccess(false), 2500);
+        alert('Theme & Background Wallpaper applied successfully!');
+      }
+    } catch (err: any) {
+      setIsSavingTheme(false);
+      alert('System Catch Error: ' + (err?.message || JSON.stringify(err)));
     }
-  } catch (err: any) {
-    setIsSavingTheme(false);
-    alert('Error saving theme: ' + err.message);
-  }
-};
+  };
 
   const handleResetTheme = () => {
     if (confirm('Reset store theme to default colors & fonts?')) {
