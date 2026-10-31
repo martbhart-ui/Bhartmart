@@ -265,16 +265,64 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const saveThemeToDb = async (themeToSave: ThemeConfig) => {
     try {
-      const { error } = await supabase.from('store_settings').upsert({
-        id: 'theme_config',
-        theme_data: themeToSave,
-        updated_at: new Date().toISOString(),
-      });
-      if (error) throw error;
+      // 1. Instant local cache update
       localStorage.setItem('bm_theme_config', JSON.stringify(themeToSave));
+
+      // 2. Direct upsert attempt
+      const { error: upsertError } = await supabase
+        .from('store_settings')
+        .upsert(
+          {
+            id: 'theme_config',
+            theme_data: themeToSave,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'id' }
+        );
+
+      if (!upsertError) return true;
+
+      console.warn('Upsert failed, trying direct update/insert fallback:', upsertError);
+
+      // 3. Fallback: Check existing row
+      const { data: existing } = await supabase
+        .from('store_settings')
+        .select('id')
+        .eq('id', 'theme_config')
+        .maybeSingle();
+
+      if (existing) {
+        const { error: updateError } = await supabase
+          .from('store_settings')
+          .update({
+            theme_data: themeToSave,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', 'theme_config');
+
+        if (updateError) {
+          alert(`Database Error: ${updateError.message} (Code: ${updateError.code})`);
+          return false;
+        }
+      } else {
+        const { error: insertError } = await supabase
+          .from('store_settings')
+          .insert({
+            id: 'theme_config',
+            theme_data: themeToSave,
+            updated_at: new Date().toISOString(),
+          });
+
+        if (insertError) {
+          alert(`Database Error: ${insertError.message} (Code: ${insertError.code})`);
+          return false;
+        }
+      }
+
       return true;
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error saving theme:', err);
+      alert(`System Error: ${err?.message || 'Unknown network error'}`);
       return false;
     }
   };
