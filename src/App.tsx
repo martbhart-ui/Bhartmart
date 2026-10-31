@@ -56,13 +56,15 @@ export function App() {
     }
   });
 
+  const hasBgImage = Boolean(theme?.backgroundImage && theme.backgroundImage.trim() !== '');
+
   useEffect(() => {
     const root = document.documentElement;
     if (isDarkMode) {
       root.classList.add('dark');
       document.body.classList.add('dark');
       root.style.colorScheme = 'dark';
-      if (!theme?.backgroundImage) {
+      if (!hasBgImage) {
         document.body.style.backgroundColor = '#0B0F17';
       }
       document.body.style.color = '#F3F4F6';
@@ -70,12 +72,12 @@ export function App() {
       root.classList.remove('dark');
       document.body.classList.remove('dark');
       root.style.colorScheme = 'light';
-      if (!theme?.backgroundImage) {
+      if (!hasBgImage) {
         document.body.style.backgroundColor = '#F8F9FA';
       }
       document.body.style.color = '#111827';
     }
-  }, [isDarkMode, theme?.backgroundImage]);
+  }, [isDarkMode, hasBgImage]);
 
   const handleToggleDarkMode = () => {
     if (themeCtx?.toggleDarkMode) themeCtx.toggleDarkMode();
@@ -230,7 +232,6 @@ export function App() {
     fetchStoreData();
   };
 
-  // Lock Body Scroll when Admin is open
   useEffect(() => {
     if (isAdminOpen) {
       document.body.style.overflow = 'hidden';
@@ -241,7 +242,6 @@ export function App() {
     }
   }, [isAdminOpen]);
 
-  // Handle Browser Back / Forward & Android Back Gesture
   useEffect(() => {
     const handlePopState = () => {
       if (window.location.hash !== '#admin') {
@@ -434,13 +434,9 @@ export function App() {
     return true;
   });
 
-  const hasBgImage = Boolean(theme?.backgroundImage && theme.backgroundImage.trim() !== '');
-
   return (
     <div
-      className={`min-h-screen flex flex-col font-sans transition-colors duration-300 ${
-        hasBgImage ? 'bg-[#0B0F17]/75 backdrop-blur-[2px]' : ''
-      }`}
+      className="min-h-screen flex flex-col font-sans transition-colors duration-300 relative"
       style={{
         backgroundColor: hasBgImage
           ? 'transparent'
@@ -451,6 +447,21 @@ export function App() {
         fontFamily: theme?.typography?.bodyFont || 'Inter',
       }}
     >
+      {/* 🌟 FORCE WALLPAPER FIXED LAYER */}
+      {hasBgImage && (
+        <div
+          className="fixed inset-0 pointer-events-none -z-10"
+          style={{
+            backgroundImage: `url("${theme.backgroundImage}")`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat',
+            backgroundAttachment: 'fixed',
+            opacity: 1,
+          }}
+        />
+      )}
+
       {/* GLOBAL HEADER */}
       <HeaderComp
         cartCount={cart.reduce((sum, item) => sum + item.quantity, 0)}
@@ -486,7 +497,7 @@ export function App() {
           onBuyNow={handleBuyNow}
         />
       ) : (
-        <main className="flex-1">
+        <main className={`flex-1 ${hasBgImage ? 'bg-transparent' : ''}`}>
           {theme.sections.showCategories && (
             <NavbarPillsComp
               categories={categories}

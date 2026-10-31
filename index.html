@@ -34,17 +34,29 @@
         font-family: 'Plus Jakarta Sans', sans-serif;
       }
 
-      /* Global Background Wallpaper Override */
+      /* Global Background Wallpaper & Transparency Overrides */
+      html, body {
+        min-height: 100vh;
+        width: 100%;
+      }
+
       body.has-custom-bg {
         background-size: cover !important;
         background-position: center !important;
         background-attachment: fixed !important;
         background-repeat: no-repeat !important;
       }
+
       body.has-custom-bg,
       body.has-custom-bg #root,
       body.has-custom-bg main,
       body.has-custom-bg .min-h-screen {
+        background-color: transparent !important;
+      }
+
+      #root {
+        min-height: 100vh;
+        position: relative;
         background-color: transparent !important;
       }
     </style>
